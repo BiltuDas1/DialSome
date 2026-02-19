@@ -139,6 +139,19 @@ ApplicationWindow {
 
         Rectangle {
             id: mainSection
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            color: "transparent"
+            Layout.topMargin: 10
+
+            Text {
+                // This is a BINDING. It updates every time 'messageChanged' is emitted.
+                text: myBackend.message.length === 0 ? "None" : myBackend.message
+                font.pixelSize: 15
+                color: "white"
+                anchors.top: parent.top
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
         }
 
         // Push everything to the top
@@ -147,7 +160,7 @@ ApplicationWindow {
         }
 
         Button {
-            text: "Call"
+            text: "Details"
             Layout.preferredWidth: 100
             Layout.preferredHeight: 50
             Layout.alignment: Qt.AlignHCenter | Qt.AlignBottom

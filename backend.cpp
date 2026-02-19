@@ -1,12 +1,11 @@
 #include "backend.h"
-#include <QDebug>
+#include <QTime>
 
-Backend::Backend(QObject *parent) : QObject(parent)
-{
-    // Constructor logic if needed
-}
+Backend::Backend(QObject *parent) : QObject(parent), m_message("") {}
 
-void Backend::performAction()
-{
-    qDebug() << "Action performed in C++ source file!";
+void Backend::performAction() {
+    // Logic happens here...
+
+    // Changing this automatically updates the UI!
+    setMessage(QTime::currentTime().toString());
 }
