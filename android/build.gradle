@@ -21,6 +21,7 @@ dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
     //noinspection GradleDependency
     implementation 'androidx.core:core:1.16.0'
+    implementation("io.github.webrtc-sdk:android:137.7151.05")
 }
 
 android {

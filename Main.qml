@@ -146,7 +146,7 @@ ApplicationWindow {
 
             Text {
                 // This is a BINDING. It updates every time 'messageChanged' is emitted.
-                text: myBackend.message.length === 0 ? "None" : myBackend.message
+                text: myBackend.message
                 font.pixelSize: 15
                 color: "white"
                 anchors.top: parent.top
@@ -160,11 +160,11 @@ ApplicationWindow {
         }
 
         Button {
-            text: "Details"
-            Layout.preferredWidth: 100
+            text: "Start WebRTC Test"
+            Layout.preferredWidth: 200
             Layout.preferredHeight: 50
             Layout.alignment: Qt.AlignHCenter | Qt.AlignBottom
-            onClicked: myBackend.performAction()
+            onClicked: myBackend.startWebRTCTest() // Calls the new C++ function
         }
     }
 
