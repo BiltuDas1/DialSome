@@ -77,6 +77,10 @@ ApplicationWindow {
                         anchors.fill: parent
                         onClicked: optionsSection.selectedIndex = 0
                     }
+
+                    Behavior on color {
+                        ColorAnimation { duration: 200 }
+                    }
                 }
 
                 Rectangle {
@@ -98,6 +102,10 @@ ApplicationWindow {
                     MouseArea {
                         anchors.fill: parent
                         onClicked: optionsSection.selectedIndex = 1
+                    }
+
+                    Behavior on color {
+                        ColorAnimation { duration: 200 }
                     }
                 }
 
@@ -121,6 +129,10 @@ ApplicationWindow {
                         anchors.fill: parent
                         onClicked: optionsSection.selectedIndex = 2
                     }
+
+                    Behavior on color {
+                        ColorAnimation { duration: 200 }
+                    }
                 }
             }
         }
@@ -138,8 +150,7 @@ ApplicationWindow {
             text: "Call"
             Layout.preferredWidth: 100
             Layout.preferredHeight: 50
-            anchors.bottom: parent.bottom
-            anchors.horizontalCenter: parent.horizontalCenter
+            Layout.alignment: Qt.AlignHCenter | Qt.AlignBottom
             onClicked: myBackend.performAction()
         }
     }

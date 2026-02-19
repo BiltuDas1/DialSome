@@ -4,6 +4,7 @@
 
 int main(int argc, char *argv[])
 {
+    QQuickStyle::setStyle("Material");
     QGuiApplication app(argc, argv);
     app.setWindowIcon(QIcon(":/icons/logo.png"));
 
