@@ -1,17 +1,15 @@
 package com.github.biltudas1.dialsome;
 
 import android.content.Context;
-import android.media.AudioAttributes;
-import android.media.AudioFocusRequest;
-import android.media.AudioManager;
+import android.util.Log;
 import org.webrtc.*;
 import java.util.Collections;
 
 public class WebRTCManager {
+    private static final String TAG = "WebRTCManager";
     private PeerConnectionFactory factory;
     private PeerConnection peerConnection;
 
-    // Native callbacks to C++
     public native void onLocalIceCandidate(String sdp, String sdpMid, int sdpMLineIndex);
     public native void onLocalSdp(String sdp, String type);
 
@@ -29,12 +27,10 @@ public class WebRTCManager {
 
         peerConnection = factory.createPeerConnection(config, new PeerConnection.Observer() {
             @Override public void onIceCandidate(IceCandidate iceCandidate) {
-                // Tell C++ we found a candidate
                 onLocalIceCandidate(iceCandidate.sdp, iceCandidate.sdpMid, iceCandidate.sdpMLineIndex);
             }
-            // ... other overrides empty ...
-            @Override public void onSignalingChange(PeerConnection.SignalingState s) {}
-            @Override public void onIceConnectionChange(PeerConnection.IceConnectionState s) {}
+            @Override public void onSignalingChange(PeerConnection.SignalingState s) { Log.d(TAG, "State: " + s); }
+            @Override public void onIceConnectionChange(PeerConnection.IceConnectionState s) { Log.d(TAG, "ICE: " + s); }
             @Override public void onIceConnectionReceivingChange(boolean b) {}
             @Override public void onIceGatheringChange(PeerConnection.IceGatheringState s) {}
             @Override public void onIceCandidatesRemoved(IceCandidate[] i) {}
@@ -83,11 +79,10 @@ public class WebRTCManager {
         peerConnection.addIceCandidate(new IceCandidate(sdpMid, sdpMLineIndex, sdp));
     }
 
-    // Helper to keep code clean
     private class SimpleSdpObserver implements SdpObserver {
         @Override public void onCreateSuccess(SessionDescription s) {}
         @Override public void onSetSuccess() {}
-        @Override public void onCreateFailure(String s) {}
-        @Override public void onSetFailure(String s) {}
+        @Override public void onCreateFailure(String s) { Log.e(TAG, "Create Fail: " + s); }
+        @Override public void onSetFailure(String s) { Log.e(TAG, "Set Fail: " + s); }
     }
 }

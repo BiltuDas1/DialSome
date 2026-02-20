@@ -17,28 +17,41 @@ extern "C" {
 JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_WebRTCManager_onLocalIceCandidate(
     JNIEnv* env, jobject, jstring sdp, jstring mid, jint index) {
     if (!s_instance) return;
-    QJsonObject json;
-    json["type"] = "candidate";
-    json["sdp"] = QJniObject(sdp).toString();
-    json["sdpMid"] = QJniObject(mid).toString();
-    json["sdpMLineIndex"] = (int)index;
-    s_instance->handleLocalIce(json);
+
+    QString sdpStr = QJniObject(sdp).toString();
+    QString midStr = QJniObject(mid).toString();
+    int mLineIndex = (int)index;
+
+    QMetaObject::invokeMethod(s_instance, [=]() {
+        QJsonObject json;
+        json["type"] = "candidate";
+        json["sdp"] = sdpStr;
+        json["sdpMid"] = midStr;
+        json["sdpMLineIndex"] = mLineIndex;
+        s_instance->handleLocalIce(json);
+    }, Qt::QueuedConnection);
 }
 
 JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_WebRTCManager_onLocalSdp(
     JNIEnv* env, jobject, jstring sdp, jstring type) {
     if (!s_instance) return;
-    QJsonObject json;
-    json["type"] = QJniObject(type).toString();
-    json["sdp"] = QJniObject(sdp).toString();
-    s_instance->handleLocalSdp(json);
+
+    QString sdpStr = QJniObject(sdp).toString();
+    QString typeStr = QJniObject(type).toString();
+
+    QMetaObject::invokeMethod(s_instance, [=]() {
+        QJsonObject json;
+        json["type"] = typeStr;
+        json["sdp"] = sdpStr;
+        s_instance->handleLocalSdp(json);
+    }, Qt::QueuedConnection);
 }
 }
 
 void Backend::startCall(const QString &roomId) {
 #ifdef Q_OS_ANDROID
     setMessage("Connecting to Room: " + roomId);
-    // Replace with your actual server IP
+    // Ensure this IP matches your server
     m_webSocket.open(QUrl("ws://192.168.31.130:8000/ws/" + roomId));
 
     QJniObject context = QNativeInterface::QAndroidApplication::context();
@@ -52,16 +65,21 @@ void Backend::startCall(const QString &roomId) {
 }
 
 void Backend::onConnected() {
-    setMessage("Signaling connected. Starting WebRTC...");
-    m_webrtc.callMethod<void>("createOffer");
+    setMessage("Signaling connected. Waiting for peer...");
+    // Instead of creating an offer, notify the room that you joined
+    QJsonObject joinJson;
+    joinJson["type"] = "join";
+    m_webSocket.sendTextMessage(QJsonDocument(joinJson).toJson(QJsonDocument::Compact));
 }
 
 void Backend::handleLocalIce(const QJsonObject &json) {
-    m_webSocket.sendTextMessage(QJsonDocument(json).toJson(QJsonDocument::Compact));
+    if (m_webSocket.isValid())
+        m_webSocket.sendTextMessage(QJsonDocument(json).toJson(QJsonDocument::Compact));
 }
 
 void Backend::handleLocalSdp(const QJsonObject &json) {
-    m_webSocket.sendTextMessage(QJsonDocument(json).toJson(QJsonDocument::Compact));
+    if (m_webSocket.isValid())
+        m_webSocket.sendTextMessage(QJsonDocument(json).toJson(QJsonDocument::Compact));
 }
 
 void Backend::onTextMessageReceived(const QString &message) {
@@ -69,7 +87,11 @@ void Backend::onTextMessageReceived(const QString &message) {
     QJsonObject json = doc.object();
     QString type = json["type"].toString();
 
-    if (type == "offer" || type == "answer") {
+    if (type == "join") {
+        // Someone else joined! Now we can safely initiate the offer
+        setMessage("Peer joined. Initiating WebRTC...");
+        m_webrtc.callMethod<void>("createOffer");
+    } else if (type == "offer" || type == "answer") {
         m_webrtc.callMethod<void>("handleRemoteSdp",
                                   "(Ljava/lang/String;Ljava/lang/String;)V",
                                   QJniObject::fromString(json["sdp"].toString()).object(),
