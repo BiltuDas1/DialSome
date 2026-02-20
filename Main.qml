@@ -145,7 +145,7 @@ ApplicationWindow {
             Layout.topMargin: 10
 
             ColumnLayout {
-                anchors.centerIn: parent
+                anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 20
 
                 TextField {
@@ -175,14 +175,6 @@ ApplicationWindow {
         Item {
             Layout.fillHeight: true
         }
-
-        // Button {
-        //     text: "Start WebRTC Test"
-        //     Layout.preferredWidth: 200
-        //     Layout.preferredHeight: 50
-        //     Layout.alignment: Qt.AlignHCenter | Qt.AlignBottom
-        //     onClicked: myBackend.startWebRTCTest() // Calls the new C++ function
-        // }
     }
 
 }

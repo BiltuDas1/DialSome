@@ -1,9 +1,16 @@
 package com.github.biltudas1.dialsome;
 
 import android.content.Context;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
+import android.os.Build;
 import android.util.Log;
 import org.webrtc.*;
+// FIX: AudioDeviceModule and JavaAudioDeviceModule are in the .audio sub-package
+import org.webrtc.audio.AudioDeviceModule;
+import org.webrtc.audio.JavaAudioDeviceModule;
 import java.util.Collections;
+import java.util.List;
 
 public class WebRTCManager {
     private static final String TAG = "WebRTCManager";
@@ -11,6 +18,7 @@ public class WebRTCManager {
     private PeerConnection peerConnection;
     private AudioSource audioSource;
     private AudioTrack localAudioTrack;
+    private AudioManager audioManager;
 
     // Native callbacks to C++
     public native void onLocalIceCandidate(String sdp, String sdpMid, int sdpMLineIndex);
@@ -19,9 +27,57 @@ public class WebRTCManager {
 
     public void init(Context context) {
         PeerConnectionFactory.initialize(
-            PeerConnectionFactory.InitializationOptions.builder(context).createInitializationOptions()
+            PeerConnectionFactory.InitializationOptions.builder(context)
+                .createInitializationOptions()
         );
-        factory = PeerConnectionFactory.builder().createPeerConnectionFactory();
+
+        audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        setupAudioManager(true);
+
+        // Explicitly create the Audio Device Module to handle recording/playout hardware
+        AudioDeviceModule adm = JavaAudioDeviceModule.builder(context)
+            .setUseHardwareAcousticEchoCanceler(true)
+            .setUseHardwareNoiseSuppressor(true)
+            .createAudioDeviceModule();
+
+        factory = PeerConnectionFactory.builder()
+            .setAudioDeviceModule(adm)
+            .createPeerConnectionFactory();
+
+        // The factory takes ownership or references the adm; we can release our local reference
+        adm.release();
+    }
+
+    @SuppressWarnings("deprecation")
+    private void setupAudioManager(boolean enable) {
+        if (audioManager == null) return;
+        if (enable) {
+            audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+            audioManager.setMicrophoneMute(false);
+
+            // Modern replacement for setSpeakerphoneOn(true) for API 31+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                List<AudioDeviceInfo> devices = audioManager.getAvailableCommunicationDevices();
+                AudioDeviceInfo speakerDevice = null;
+                for (AudioDeviceInfo device : devices) {
+                    if (device.getType() == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) {
+                        speakerDevice = device;
+                        break;
+                    }
+                }
+                if (speakerDevice != null) {
+                    audioManager.setCommunicationDevice(speakerDevice);
+                }
+            } else {
+                // Fallback for older versions (suppressed warning)
+                audioManager.setSpeakerphoneOn(true);
+            }
+        } else {
+            audioManager.setMode(AudioManager.MODE_NORMAL);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                audioManager.clearCommunicationDevice();
+            }
+        }
     }
 
     public void createPeerConnection() {
@@ -43,7 +99,7 @@ public class WebRTCManager {
             }
 
             @Override public void onTrack(RtpTransceiver transceiver) {
-                Log.d(TAG, "Remote track added: " + transceiver.getReceiver().track().kind());
+                Log.d(TAG, "Remote track received: " + transceiver.getReceiver().track().kind());
             }
 
             @Override public void onSignalingChange(PeerConnection.SignalingState s) { Log.d(TAG, "Signaling: " + s); }
@@ -56,30 +112,32 @@ public class WebRTCManager {
             @Override public void onRenegotiationNeeded() {}
         });
 
-        // Initialize local audio capture
-        audioSource = factory.createAudioSource(new MediaConstraints());
-        localAudioTrack = factory.createAudioTrack("ARDAMSa0", audioSource);
-        localAudioTrack.setEnabled(true);
+        // Initialize local audio track if not already done
+        if (localAudioTrack == null) {
+            audioSource = factory.createAudioSource(new MediaConstraints());
+            localAudioTrack = factory.createAudioTrack("ARDAMSa0", audioSource);
+            localAudioTrack.setEnabled(true);
+        }
 
-        // Add bidirectional transceiver (SEND_RECV) and attach local track
-        RtpTransceiver.RtpTransceiverInit transceiverInit =
-            new RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.SEND_RECV);
-
-        RtpTransceiver transceiver = peerConnection.addTransceiver(
-            MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO, transceiverInit);
-        transceiver.getSender().setTrack(localAudioTrack, true);
+        // Add the track to PeerConnection to ensure bidirectional "sendrecv" in SDP
+        peerConnection.addTrack(localAudioTrack, Collections.singletonList("ARDAMS"));
     }
 
     public void createOffer() {
+        MediaConstraints constraints = new MediaConstraints();
+        constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
+
         peerConnection.createOffer(new SimpleSdpObserver() {
             @Override public void onCreateSuccess(SessionDescription sdp) {
                 peerConnection.setLocalDescription(new SimpleSdpObserver(), sdp);
                 onLocalSdp(sdp.description, sdp.type.canonicalForm());
             }
-        }, new MediaConstraints());
+        }, constraints);
     }
 
     public void handleRemoteSdp(String sdp, String type) {
+        if (peerConnection == null) return;
+
         SessionDescription remoteSdp = new SessionDescription(
             SessionDescription.Type.fromCanonicalForm(type), sdp);
 
@@ -93,16 +151,29 @@ public class WebRTCManager {
     }
 
     private void createAnswer() {
+        MediaConstraints constraints = new MediaConstraints();
+        constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
+
         peerConnection.createAnswer(new SimpleSdpObserver() {
             @Override public void onCreateSuccess(SessionDescription sdp) {
                 peerConnection.setLocalDescription(new SimpleSdpObserver(), sdp);
                 onLocalSdp(sdp.description, sdp.type.canonicalForm());
             }
-        }, new MediaConstraints());
+        }, constraints);
     }
 
     public void addRemoteIceCandidate(String sdp, String sdpMid, int sdpMLineIndex) {
-        peerConnection.addIceCandidate(new IceCandidate(sdpMid, sdpMLineIndex, sdp));
+        if (peerConnection != null) {
+            peerConnection.addIceCandidate(new IceCandidate(sdpMid, sdpMLineIndex, sdp));
+        }
+    }
+
+    public void close() {
+        setupAudioManager(false);
+        if (localAudioTrack != null) localAudioTrack.dispose();
+        if (audioSource != null) audioSource.dispose();
+        if (peerConnection != null) peerConnection.dispose();
+        if (factory != null) factory.dispose();
     }
 
     private class SimpleSdpObserver implements SdpObserver {
