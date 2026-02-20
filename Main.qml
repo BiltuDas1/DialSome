@@ -144,13 +144,30 @@ ApplicationWindow {
             color: "transparent"
             Layout.topMargin: 10
 
-            Text {
-                // This is a BINDING. It updates every time 'messageChanged' is emitted.
-                text: myBackend.message
-                font.pixelSize: 15
-                color: "white"
-                anchors.top: parent.top
-                anchors.horizontalCenter: parent.horizontalCenter
+            ColumnLayout {
+                anchors.centerIn: parent
+                spacing: 20
+
+                TextField {
+                    id: roomInput
+                    placeholderText: "Enter Room ID (e.g. 123)"
+                    color: "white"
+                    background: Rectangle { color: "#333"; radius: 5 }
+                    Layout.preferredWidth: 250
+                }
+
+                Button {
+                    text: "Start / Join Call"
+                    onClicked: myBackend.startCall(roomInput.text)
+                    Layout.alignment: Qt.AlignHCenter
+                }
+
+                Text {
+                    text: myBackend.message
+                    color: "#5B89F7"
+                    font.pixelSize: 14
+                    Layout.alignment: Qt.AlignHCenter
+                }
             }
         }
 
@@ -159,13 +176,13 @@ ApplicationWindow {
             Layout.fillHeight: true
         }
 
-        Button {
-            text: "Start WebRTC Test"
-            Layout.preferredWidth: 200
-            Layout.preferredHeight: 50
-            Layout.alignment: Qt.AlignHCenter | Qt.AlignBottom
-            onClicked: myBackend.startWebRTCTest() // Calls the new C++ function
-        }
+        // Button {
+        //     text: "Start WebRTC Test"
+        //     Layout.preferredWidth: 200
+        //     Layout.preferredHeight: 50
+        //     Layout.alignment: Qt.AlignHCenter | Qt.AlignBottom
+        //     onClicked: myBackend.startWebRTCTest() // Calls the new C++ function
+        // }
     }
 
 }

@@ -5,6 +5,7 @@ find_package(Qt6 REQUIRED COMPONENTS
     Quick
     QuickControls2
     Network
+    WebSockets
 )
 
 qt_standard_project_setup(REQUIRES 6.8)
@@ -42,6 +43,7 @@ target_link_libraries(DialSome PRIVATE
     Qt6::Quick
     Qt6::QuickControls2
     Qt6::Network
+    Qt6::WebSockets
 )
 
 if(ANDROID)
