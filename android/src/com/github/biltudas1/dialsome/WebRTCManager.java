@@ -9,6 +9,8 @@ public class WebRTCManager {
     private static final String TAG = "WebRTCManager";
     private PeerConnectionFactory factory;
     private PeerConnection peerConnection;
+    private AudioSource audioSource;
+    private AudioTrack localAudioTrack;
 
     // Native callbacks to C++
     public native void onLocalIceCandidate(String sdp, String sdpMid, int sdpMLineIndex);
@@ -34,11 +36,14 @@ public class WebRTCManager {
 
             @Override public void onIceConnectionChange(PeerConnection.IceConnectionState newState) {
                 Log.d(TAG, "ICE State Change: " + newState);
-                // When successfully connected, trigger the C++ UI update
                 if (newState == PeerConnection.IceConnectionState.CONNECTED ||
                     newState == PeerConnection.IceConnectionState.COMPLETED) {
                     onCallEstablished();
                 }
+            }
+
+            @Override public void onTrack(RtpTransceiver transceiver) {
+                Log.d(TAG, "Remote track added: " + transceiver.getReceiver().track().kind());
             }
 
             @Override public void onSignalingChange(PeerConnection.SignalingState s) { Log.d(TAG, "Signaling: " + s); }
@@ -49,10 +54,20 @@ public class WebRTCManager {
             @Override public void onRemoveStream(MediaStream m) {}
             @Override public void onDataChannel(DataChannel d) {}
             @Override public void onRenegotiationNeeded() {}
-            @Override public void onTrack(RtpTransceiver t) {}
         });
 
-        peerConnection.addTransceiver(MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO);
+        // Initialize local audio capture
+        audioSource = factory.createAudioSource(new MediaConstraints());
+        localAudioTrack = factory.createAudioTrack("ARDAMSa0", audioSource);
+        localAudioTrack.setEnabled(true);
+
+        // Add bidirectional transceiver (SEND_RECV) and attach local track
+        RtpTransceiver.RtpTransceiverInit transceiverInit =
+            new RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.SEND_RECV);
+
+        RtpTransceiver transceiver = peerConnection.addTransceiver(
+            MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO, transceiverInit);
+        transceiver.getSender().setTrack(localAudioTrack, true);
     }
 
     public void createOffer() {

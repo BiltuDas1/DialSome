@@ -8,8 +8,7 @@
 #include <QtWebSockets/QWebSocket>
 #include <QtQmlIntegration/qqmlintegration.h>
 
-class Backend : public QObject
-{
+class Backend : public QObject {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QString message READ message NOTIFY messageChanged)
@@ -17,13 +16,8 @@ class Backend : public QObject
 public:
     explicit Backend(QObject *parent = nullptr);
     QString message() const;
-
-    // Moved to public so JNI callbacks can update the UI message
     void setMessage(const QString &msg);
-
     Q_INVOKABLE void startCall(const QString &roomId);
-
-    // Internal methods for JNI callbacks
     void handleLocalIce(const QJsonObject &json);
     void handleLocalSdp(const QJsonObject &json);
 

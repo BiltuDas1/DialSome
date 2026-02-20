@@ -3,6 +3,7 @@
 #include <QJsonObject>
 #include <QCoreApplication>
 #include <QDebug>
+#include <QPermission>
 
 static Backend* s_instance = nullptr;
 
@@ -12,22 +13,18 @@ Backend::Backend(QObject *parent) : QObject(parent) {
     connect(&m_webSocket, &QWebSocket::textMessageReceived, this, &Backend::onTextMessageReceived);
 }
 
-// JNI Callbacks from Java
 extern "C" {
 JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_WebRTCManager_onLocalIceCandidate(
     JNIEnv* env, jobject, jstring sdp, jstring mid, jint index) {
     if (!s_instance) return;
-
     QString sdpStr = QJniObject(sdp).toString();
     QString midStr = QJniObject(mid).toString();
-    int mLineIndex = (int)index;
-
     QMetaObject::invokeMethod(s_instance, [=]() {
         QJsonObject json;
         json["type"] = "candidate";
         json["sdp"] = sdpStr;
         json["sdpMid"] = midStr;
-        json["sdpMLineIndex"] = mLineIndex;
+        json["sdpMLineIndex"] = (int)index;
         s_instance->handleLocalIce(json);
     }, Qt::QueuedConnection);
 }
@@ -35,10 +32,8 @@ JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_WebRTCManager_onLocalI
 JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_WebRTCManager_onLocalSdp(
     JNIEnv* env, jobject, jstring sdp, jstring type) {
     if (!s_instance) return;
-
     QString sdpStr = QJniObject(sdp).toString();
     QString typeStr = QJniObject(type).toString();
-
     QMetaObject::invokeMethod(s_instance, [=]() {
         QJsonObject json;
         json["type"] = typeStr;
@@ -47,7 +42,6 @@ JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_WebRTCManager_onLocalS
     }, Qt::QueuedConnection);
 }
 
-// Fixed: This can now call setMessage because it is public in the header
 JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_WebRTCManager_onCallEstablished(JNIEnv*, jobject) {
     if (!s_instance) return;
     QMetaObject::invokeMethod(s_instance, [=]() {
@@ -58,17 +52,26 @@ JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_WebRTCManager_onCallEs
 
 void Backend::startCall(const QString &roomId) {
 #ifdef Q_OS_ANDROID
-    setMessage("Connecting to Room: " + roomId);
-    // Note: Ensure this IP matches your api/main.py server
-    m_webSocket.open(QUrl("ws://192.168.31.130:8000/ws/" + roomId));
+    QMicrophonePermission micPermission;
+    qApp->requestPermission(micPermission, [this, roomId](const QPermission &permission) {
+        if (permission.status() != Qt::PermissionStatus::Granted) {
+            setMessage("Microphone permission denied!");
+            return;
+        }
 
-    QJniObject context = QNativeInterface::QAndroidApplication::context();
-    m_webrtc = QJniObject("com/github/biltudas1/dialsome/WebRTCManager");
+        setMessage("Connecting to Room: " + roomId);
+        // Ensure this IP matches your local server IP
+        m_webSocket.open(QUrl("ws://192.168.31.130:8000/ws/" + roomId));
 
-    if (m_webrtc.isValid()) {
-        m_webrtc.callMethod<void>("init", "(Landroid/content/Context;)V", context.object());
-        m_webrtc.callMethod<void>("createPeerConnection");
-    }
+        QJniObject context = QNativeInterface::QAndroidApplication::context();
+        m_webrtc = QJniObject("com/github/biltudas1/dialsome/WebRTCManager");
+
+        if (m_webrtc.isValid()) {
+            m_webrtc.callMethod<void>("init", "(Landroid/content/Context;)V", context.object());
+            // Pre-initialize PC so tracks are ready
+            m_webrtc.callMethod<void>("createPeerConnection");
+        }
+    });
 #endif
 }
 
