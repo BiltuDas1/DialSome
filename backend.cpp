@@ -46,12 +46,20 @@ JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_WebRTCManager_onLocalS
         s_instance->handleLocalSdp(json);
     }, Qt::QueuedConnection);
 }
+
+// Fixed: This can now call setMessage because it is public in the header
+JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_WebRTCManager_onCallEstablished(JNIEnv*, jobject) {
+    if (!s_instance) return;
+    QMetaObject::invokeMethod(s_instance, [=]() {
+        s_instance->setMessage("Call Connected! Audio is live.");
+    }, Qt::QueuedConnection);
+}
 }
 
 void Backend::startCall(const QString &roomId) {
 #ifdef Q_OS_ANDROID
     setMessage("Connecting to Room: " + roomId);
-    // Ensure this IP matches your server
+    // Note: Ensure this IP matches your api/main.py server
     m_webSocket.open(QUrl("ws://192.168.31.130:8000/ws/" + roomId));
 
     QJniObject context = QNativeInterface::QAndroidApplication::context();
@@ -66,7 +74,6 @@ void Backend::startCall(const QString &roomId) {
 
 void Backend::onConnected() {
     setMessage("Signaling connected. Waiting for peer...");
-    // Instead of creating an offer, notify the room that you joined
     QJsonObject joinJson;
     joinJson["type"] = "join";
     m_webSocket.sendTextMessage(QJsonDocument(joinJson).toJson(QJsonDocument::Compact));
@@ -88,7 +95,6 @@ void Backend::onTextMessageReceived(const QString &message) {
     QString type = json["type"].toString();
 
     if (type == "join") {
-        // Someone else joined! Now we can safely initiate the offer
         setMessage("Peer joined. Initiating WebRTC...");
         m_webrtc.callMethod<void>("createOffer");
     } else if (type == "offer" || type == "answer") {

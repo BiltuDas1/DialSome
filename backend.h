@@ -3,8 +3,8 @@
 
 #include <QObject>
 #include <QString>
-#include <QJniObject>      // Fixed: Missing this caused the header error
-#include <QJsonObject>     // Needed for JSON signaling
+#include <QJniObject>
+#include <QJsonObject>
 #include <QtWebSockets/QWebSocket>
 #include <QtQmlIntegration/qqmlintegration.h>
 
@@ -17,6 +17,9 @@ class Backend : public QObject
 public:
     explicit Backend(QObject *parent = nullptr);
     QString message() const;
+
+    // Moved to public so JNI callbacks can update the UI message
+    void setMessage(const QString &msg);
 
     Q_INVOKABLE void startCall(const QString &roomId);
 
@@ -32,7 +35,6 @@ private slots:
     void onConnected();
 
 private:
-    void setMessage(const QString &msg);
     QString m_message = "Ready";
     QWebSocket m_webSocket;
     QJniObject m_webrtc;

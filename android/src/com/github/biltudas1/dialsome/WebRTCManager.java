@@ -10,8 +10,10 @@ public class WebRTCManager {
     private PeerConnectionFactory factory;
     private PeerConnection peerConnection;
 
+    // Native callbacks to C++
     public native void onLocalIceCandidate(String sdp, String sdpMid, int sdpMLineIndex);
     public native void onLocalSdp(String sdp, String type);
+    public native void onCallEstablished();
 
     public void init(Context context) {
         PeerConnectionFactory.initialize(
@@ -29,8 +31,17 @@ public class WebRTCManager {
             @Override public void onIceCandidate(IceCandidate iceCandidate) {
                 onLocalIceCandidate(iceCandidate.sdp, iceCandidate.sdpMid, iceCandidate.sdpMLineIndex);
             }
-            @Override public void onSignalingChange(PeerConnection.SignalingState s) { Log.d(TAG, "State: " + s); }
-            @Override public void onIceConnectionChange(PeerConnection.IceConnectionState s) { Log.d(TAG, "ICE: " + s); }
+
+            @Override public void onIceConnectionChange(PeerConnection.IceConnectionState newState) {
+                Log.d(TAG, "ICE State Change: " + newState);
+                // When successfully connected, trigger the C++ UI update
+                if (newState == PeerConnection.IceConnectionState.CONNECTED ||
+                    newState == PeerConnection.IceConnectionState.COMPLETED) {
+                    onCallEstablished();
+                }
+            }
+
+            @Override public void onSignalingChange(PeerConnection.SignalingState s) { Log.d(TAG, "Signaling: " + s); }
             @Override public void onIceConnectionReceivingChange(boolean b) {}
             @Override public void onIceGatheringChange(PeerConnection.IceGatheringState s) {}
             @Override public void onIceCandidatesRemoved(IceCandidate[] i) {}
@@ -82,7 +93,7 @@ public class WebRTCManager {
     private class SimpleSdpObserver implements SdpObserver {
         @Override public void onCreateSuccess(SessionDescription s) {}
         @Override public void onSetSuccess() {}
-        @Override public void onCreateFailure(String s) { Log.e(TAG, "Create Fail: " + s); }
-        @Override public void onSetFailure(String s) { Log.e(TAG, "Set Fail: " + s); }
+        @Override public void onCreateFailure(String s) { Log.e(TAG, "SDP Create Failure: " + s); }
+        @Override public void onSetFailure(String s) { Log.e(TAG, "SDP Set Failure: " + s); }
     }
 }
