@@ -2,38 +2,36 @@
 #define BACKEND_H
 
 #include <QObject>
-#include <QtQml/qqmlregistration.h>
-#include <QString> // Include types you need
+#include <QString>
+#include <QJniObject>
+#include <QJsonObject>
+#include <QtWebSockets/QWebSocket>
+#include <QtQmlIntegration/qqmlintegration.h>
 
-class Backend : public QObject
-{
+class Backend : public QObject {
     Q_OBJECT
     QML_ELEMENT
-
-    // The Bridge: links 'message' to C++ functions
-    Q_PROPERTY(QString message READ message WRITE setMessage NOTIFY messageChanged)
+    Q_PROPERTY(QString message READ message NOTIFY messageChanged)
 
 public:
     explicit Backend(QObject *parent = nullptr);
-
-    // The Getter (required for QML to read the value)
-    QString message() const { return m_message; }
-
-    // The Setter (this is where you modify the value)
-    void setMessage(const QString &newMessage) {
-        if (m_message == newMessage) return;
-        m_message = newMessage;
-        emit messageChanged(); // This tells QML to refresh
-    }
-
-    Q_INVOKABLE void performAction();
+    QString message() const;
+    void setMessage(const QString &msg);
+    Q_INVOKABLE void startCall(const QString &roomId);
+    void handleLocalIce(const QJsonObject &json);
+    void handleLocalSdp(const QJsonObject &json);
 
 signals:
-    // This signal must match the NOTIFY name in Q_PROPERTY
     void messageChanged();
 
+private slots:
+    void onTextMessageReceived(const QString &message);
+    void onConnected();
+
 private:
-    QString m_message;
+    QString m_message = "Ready";
+    QWebSocket m_webSocket;
+    QJniObject m_webrtc;
 };
 
-#endif // BACKEND_H
+#endif
