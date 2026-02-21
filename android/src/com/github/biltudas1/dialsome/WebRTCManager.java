@@ -6,7 +6,6 @@ import android.media.AudioManager;
 import android.os.Build;
 import android.util.Log;
 import org.webrtc.*;
-// FIX: AudioDeviceModule and JavaAudioDeviceModule are in the .audio sub-package
 import org.webrtc.audio.AudioDeviceModule;
 import org.webrtc.audio.JavaAudioDeviceModule;
 import java.util.Collections;
