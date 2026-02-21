@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'version.txt'
+      - 'android/AndroidManifest.xml'
 
 jobs:
   release:
@@ -33,21 +33,43 @@ jobs:
           VERSION: ${{ steps.version.outputs.VERSION }}
           GH_TOKEN: ${{ github.token }}
 
-      - name: Build and Sign APK
+      - name: Build and Sign APK (armeabi-v7a)
         if: steps.check.outputs.skip == 'false'
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > /tmp/release.keystore
           
           # Configure
-          /opt/qt/6.10.2/android_armv7/bin/qt-cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release
+          /opt/qt/6.10.2/android_armv7/bin/qt-cmake -S . -B build-armeabi-v7a -GNinja -DCMAKE_BUILD_TYPE=Release
             
           # Compile
-          /opt/qt/6.10.2/android_armv7/bin/qt-cmake --build ./build --target all
+          /opt/qt/6.10.2/android_armv7/bin/qt-cmake --build ./build-armeabi-v7a --target all
           
           # Deploy and Sign
           /opt/Qt-amd64-6.10.2/bin/androiddeployqt \
-            --input ./build/android-DialSome-deployment-settings.json \
-            --output ./build/android-build \
+            --input ./build-armeabi-v7a/android-DialSome-deployment-settings.json \
+            --output ./build-armeabi-v7a/android-build \
+            --android-platform android-36 \
+            --jdk=/usr/lib/jvm/java-21-openjdk-amd64 \
+            --gradle --release \
+            --sign /tmp/release.keystore ${{ secrets.KEY_ALIAS }} \
+            --storepass '${{ secrets.KEYSTORE_PASSWORD }}' \
+            --keypass '${{ secrets.KEY_PASSWORD }}'
+
+      - name: Build and Sign APK (arm64-v8a)
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > /tmp/release.keystore
+          
+          # Configure
+          /opt/qt/6.10.2/android_arm64_v8a/bin/qt-cmake -S . -B build-arm64-v8a -GNinja -DCMAKE_BUILD_TYPE=Release
+            
+          # Compile
+          /opt/qt/6.10.2/android_arm64_v8a/bin/qt-cmake --build ./build-arm64-v8a --target all
+          
+          # Deploy and Sign
+          /opt/Qt-amd64-6.10.2/bin/androiddeployqt \
+            --input ./build-arm64-v8a/android-DialSome-deployment-settings.json \
+            --output ./build-arm64-v8a/android-build \
             --android-platform android-36 \
             --jdk=/usr/lib/jvm/java-21-openjdk-amd64 \
             --gradle --release \
@@ -57,17 +79,30 @@ jobs:
 
       - name: Generate Changelog
         if: steps.check.outputs.skip == 'false'
-        run: bash .github/scripts/generate-changelog.sh
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          bash .github/scripts/generate-changelog.sh
+
+      - name: Rename APK for Release
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          OLD_PATH="./build-armeabi-v7a/android-build/build/outputs/apk/release/android-build-release-signed.apk"
+          NEW_NAME="./build-armeabi-v7a/android-build/build/outputs/apk/release/DialSome-${{ steps.version.outputs.VERSION }}-armeabi-v7a.apk"
+          mv "$OLD_PATH" "$NEW_NAME"
+          OLD_PATH="./build-arm64-v8a/android-build/build/outputs/apk/release/android-build-release-signed.apk"
+          NEW_NAME="./build-arm64-v8a/android-build/build/outputs/apk/release/DialSome-${{ steps.version.outputs.VERSION }}-arm64-v8a.apk"
+          mv "$OLD_PATH" "$NEW_NAME"
 
       - name: Create GitHub Release
         if: steps.check.outputs.skip == 'false'
-        run: |
-          bash .github/scripts/create-release.sh
-          
-          # Upload Artifact
-          APK_PATH="./build/android-build/build/outputs/apk/release/android-build-release-signed.apk"
-          gh release upload "$VERSION" "$APK_PATH#DialSome-$VERSION-armeabi-v7a.apk"
+        uses: softprops/action-gh-release@v2.5.0
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: Release ${{ steps.version.outputs.VERSION }}
+          body_path: changelog.md
+          prerelease: ${{ steps.version.outputs.IS_PRERELEASE == 'true' }}
+          files: |
+            ./build-armeabi-v7a/android-build/build/outputs/apk/release/DialSome-${{ steps.version.outputs.VERSION }}-armeabi-v7a.apk
+            ./build-arm64-v8a/android-build/build/outputs/apk/release/DialSome-${{ steps.version.outputs.VERSION }}-arm64-v8a.apk
         env:
-          VERSION: ${{ steps.version.outputs.VERSION }}
-          IS_PRERELEASE: ${{ steps.version.outputs.IS_PRERELEASE }}
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
