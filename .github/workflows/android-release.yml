@@ -1,0 +1,73 @@
+name: Android Release
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'version.txt'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    container:
+      image: carlonluca/qt-dev:6.10.2
+    
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Get Version
+        id: version
+        run: bash .github/scripts/get-version.sh
+
+      - name: Check if Release Exists
+        id: check
+        run: bash .github/scripts/check-release.sh
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Build and Sign APK
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > /tmp/release.keystore
+          
+          # Configure
+          /opt/qt/6.10.2/android_armv7/bin/qt-cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release
+            
+          # Compile
+          /opt/qt/6.10.2/android_armv7/bin/qt-cmake --build ./build --target all
+          
+          # Deploy and Sign
+          /opt/Qt-amd64-6.10.2/bin/androiddeployqt \
+            --input ./build/android-DialSome-deployment-settings.json \
+            --output ./build/android-build \
+            --android-platform android-36 \
+            --jdk=/usr/lib/jvm/java-21-openjdk-amd64 \
+            --gradle --release \
+            --sign /tmp/release.keystore ${{ secrets.KEY_ALIAS }} \
+            --storepass '${{ secrets.KEYSTORE_PASSWORD }}' \
+            --keypass '${{ secrets.KEY_PASSWORD }}'
+
+      - name: Generate Changelog
+        if: steps.check.outputs.skip == 'false'
+        run: bash .github/scripts/generate-changelog.sh
+
+      - name: Create GitHub Release
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          bash .github/scripts/create-release.sh
+          
+          # Upload Artifact
+          APK_PATH="./build/android-build/build/outputs/apk/release/android-build-release-signed.apk"
+          gh release upload "$VERSION" "$APK_PATH#DialSome-$VERSION-armeabi-v7a.apk"
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          IS_PRERELEASE: ${{ steps.version.outputs.IS_PRERELEASE }}
+          GH_TOKEN: ${{ github.token }}
