@@ -21,4 +21,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+ENV PRODUCTION=true
+
 CMD [ "python", "main.py" ]
