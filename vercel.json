@@ -1,4 +1,7 @@
 {
+  "api/*.py": {
+    "excludeFiles": "**/__pycache__/**"
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
