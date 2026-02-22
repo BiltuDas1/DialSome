@@ -6,6 +6,7 @@ app = FastAPI()
 app.include_router(voicecallRouter.router)
 app.include_router(usersRouter.router)
 
+
 @app.get("/", response_class=HTMLResponse)
 async def root():
   return """
@@ -19,3 +20,9 @@ async def root():
     </body>
   </html>
   """
+
+
+if __name__ == "__main__":
+  import uvicorn
+
+  uvicorn.run(app, host="0.0.0.0", port=8000)
