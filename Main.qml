@@ -51,11 +51,11 @@ ApplicationWindow {
                 Rectangle {
                     width: 10
                     height: 10
-                    color: "red"
+                    color: myBackend.serverConnected ? "green" : "red"
                     radius: width / 2
 
                     anchors.verticalCenter: parent.verticalCenter
-                    anchors.verticalCenterOffset: 3
+                    anchors.verticalCenterOffset: 2
                 }
 
                 Item {

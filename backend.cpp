@@ -12,6 +12,27 @@ static Backend* s_instance = nullptr;
 
 Backend::Backend(QObject *parent) : QObject(parent) {
     s_instance = this;
+
+    connect(this, &Backend::settingsLoaded, this, [this]() {
+        QUrl url(this->m_settings->value("Server/host").toString());
+        QNetworkRequest request(url);
+
+        qDebug() << "Attempting to connect to the server...";
+
+        QNetworkReply *reply = m_networkManager.get(request);
+        connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+            if (reply->error() == QNetworkReply::NoError) {
+                qDebug() << "Server Connected";
+                this->m_serverConnected = true;
+                emit this->serverConnectionChanged();
+            } else {
+                qDebug() << "Server Disconnected";
+            }
+            reply->deleteLater();
+        });
+
+    });
+
     connect(&m_webSocket, &QWebSocket::connected, this, &Backend::onConnected);
     connect(&m_webSocket, &QWebSocket::textMessageReceived, this, &Backend::onTextMessageReceived);
 }
@@ -147,7 +168,7 @@ void Backend::fetchStartupData() {
                     qDebug() << "File saved successfully at:" << filePath;
 
                     this->m_settings.reset(new QSettings(filePath, QSettings::IniFormat));
-                    qDebug() << "Host from INI:" << this->m_settings->value("Server/host").toString();
+                    emit this->settingsLoaded();
                 } else {
                     qDebug() << "Unable to save file: " << filePath;
                 }
@@ -159,5 +180,8 @@ void Backend::fetchStartupData() {
     } else {
         qDebug() << "Loading existing settings from:" << filePath;
         this->m_settings.reset(new QSettings(filePath, QSettings::IniFormat));
+        emit this->settingsLoaded();
     }
 }
+
+bool Backend::serverConnected() const { return m_serverConnected; }

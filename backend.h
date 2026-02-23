@@ -17,6 +17,7 @@ class Backend : public QObject {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QString message READ message NOTIFY messageChanged)
+    Q_PROPERTY(bool serverConnected READ serverConnected NOTIFY serverConnectionChanged)
 
 public:
     explicit Backend(QObject *parent = nullptr);
@@ -26,9 +27,12 @@ public:
     void handleLocalIce(const QJsonObject &json);
     void handleLocalSdp(const QJsonObject &json);
     Q_INVOKABLE void fetchStartupData();
+    bool serverConnected() const;
 
 signals:
     void messageChanged();
+    void settingsLoaded();
+    void serverConnectionChanged();
 
 private slots:
     void onTextMessageReceived(const QString &message);
@@ -40,6 +44,7 @@ private:
     QWebSocket m_webSocket;
     QJniObject m_webrtc;
     QScopedPointer<QSettings> m_settings;
+    bool m_serverConnected = false;
 };
 
 #endif
