@@ -7,11 +7,17 @@
 #include <QJsonObject>
 #include <QtWebSockets/QWebSocket>
 #include <QtQmlIntegration/qqmlintegration.h>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QSettings>
+#include <QScopedPointer>
 
 class Backend : public QObject {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QString message READ message NOTIFY messageChanged)
+    Q_PROPERTY(bool serverConnected READ serverConnected NOTIFY serverConnectionChanged)
 
 public:
     explicit Backend(QObject *parent = nullptr);
@@ -20,9 +26,13 @@ public:
     Q_INVOKABLE void startCall(const QString &roomId);
     void handleLocalIce(const QJsonObject &json);
     void handleLocalSdp(const QJsonObject &json);
+    Q_INVOKABLE void fetchStartupData();
+    bool serverConnected() const;
 
 signals:
     void messageChanged();
+    void settingsLoaded();
+    void serverConnectionChanged();
 
 private slots:
     void onTextMessageReceived(const QString &message);
@@ -30,8 +40,11 @@ private slots:
 
 private:
     QString m_message = "Ready";
+    QNetworkAccessManager m_networkManager;
     QWebSocket m_webSocket;
     QJniObject m_webrtc;
+    QScopedPointer<QSettings> m_settings;
+    bool m_serverConnected = false;
 };
 
 #endif
