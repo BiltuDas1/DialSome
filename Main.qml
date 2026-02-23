@@ -18,6 +18,10 @@ ApplicationWindow {
 
     Backend {
         id: myBackend
+
+        Component.onCompleted: {
+            myBackend.fetchStartupData();
+        }
     }
 
     ColumnLayout {
@@ -32,13 +36,31 @@ ApplicationWindow {
             color: "transparent"
             border.width: 1
 
-            Text {
-                text: "DialSome"
-                color: "#5B89F7"
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
+            RowLayout {
+                anchors.fill: parent
 
-                font.pixelSize: 18
+                Text {
+                    text: "DialSome"
+                    color: "#5B89F7"
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    font.pixelSize: 18
+                }
+
+                Rectangle {
+                    width: 10
+                    height: 10
+                    color: "red"
+                    radius: width / 2
+
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.verticalCenterOffset: 3
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                }
             }
         }
 
@@ -176,5 +198,4 @@ ApplicationWindow {
             Layout.fillHeight: true
         }
     }
-
 }

@@ -4,6 +4,9 @@
 #include <QCoreApplication>
 #include <QDebug>
 #include <QPermission>
+#include <QStandardPaths>
+#include <QDir>
+#include <QFile>
 
 static Backend* s_instance = nullptr;
 
@@ -116,3 +119,45 @@ void Backend::onTextMessageReceived(const QString &message) {
 
 QString Backend::message() const { return m_message; }
 void Backend::setMessage(const QString &msg) { m_message = msg; emit messageChanged(); }
+
+void Backend::fetchStartupData() {
+    qDebug() << "App started: Fetching initial data...";
+    QString directory = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+
+    QDir dir;
+    if (!dir.exists(directory)) {
+        dir.mkpath(directory);
+    }
+
+    QString filePath = directory + "/settings.ini";
+
+    if (!QFile::exists(filePath)) {
+        QUrl url(GITHUB_CONFIGURATIONS);
+        QNetworkRequest request(url);
+
+        QNetworkReply *reply = m_networkManager.get(request);
+        connect(reply, &QNetworkReply::finished, this, [this, reply, filePath]() {
+            if (reply->error() == QNetworkReply::NoError) {
+                QByteArray rawData = reply->readAll();
+
+                QFile file(filePath);
+                if (file.open(QIODevice::WriteOnly)) {
+                    file.write(rawData);
+                    file.close();
+                    qDebug() << "File saved successfully at:" << filePath;
+
+                    this->m_settings.reset(new QSettings(filePath, QSettings::IniFormat));
+                    qDebug() << "Host from INI:" << this->m_settings->value("Server/host").toString();
+                } else {
+                    qDebug() << "Unable to save file: " << filePath;
+                }
+            } else {
+                qDebug() << "Unable to fetch settings from " << reply->errorString();
+            }
+            reply->deleteLater();
+        });
+    } else {
+        qDebug() << "Loading existing settings from:" << filePath;
+        this->m_settings.reset(new QSettings(filePath, QSettings::IniFormat));
+    }
+}

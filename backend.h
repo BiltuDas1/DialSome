@@ -7,6 +7,11 @@
 #include <QJsonObject>
 #include <QtWebSockets/QWebSocket>
 #include <QtQmlIntegration/qqmlintegration.h>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QSettings>
+#include <QScopedPointer>
 
 class Backend : public QObject {
     Q_OBJECT
@@ -20,6 +25,7 @@ public:
     Q_INVOKABLE void startCall(const QString &roomId);
     void handleLocalIce(const QJsonObject &json);
     void handleLocalSdp(const QJsonObject &json);
+    Q_INVOKABLE void fetchStartupData();
 
 signals:
     void messageChanged();
@@ -30,8 +36,10 @@ private slots:
 
 private:
     QString m_message = "Ready";
+    QNetworkAccessManager m_networkManager;
     QWebSocket m_webSocket;
     QJniObject m_webrtc;
+    QScopedPointer<QSettings> m_settings;
 };
 
 #endif
