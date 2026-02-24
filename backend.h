@@ -28,11 +28,14 @@ public:
     void handleLocalSdp(const QJsonObject &json);
     Q_INVOKABLE void fetchStartupData();
     bool serverConnected() const;
+    Q_INVOKABLE void loginWithGoogle(const QString &webClientId);
 
 signals:
     void messageChanged();
     void settingsLoaded();
     void serverConnectionChanged();
+    void loginFinished(const QString &email, const QString &displayName, const QString &idToken);
+    void loginError(const QString &error);
 
 private slots:
     void onTextMessageReceived(const QString &message);
@@ -45,6 +48,7 @@ private:
     QJniObject m_webrtc;
     QScopedPointer<QSettings> m_settings;
     bool m_serverConnected = false;
+    QJniObject m_googleLogin;
 };
 
 #endif

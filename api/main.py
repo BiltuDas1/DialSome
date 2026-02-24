@@ -21,7 +21,7 @@ async def root():
   )
 
 
-rooms = {}
+rooms: dict[str, list[WebSocket]] = {}
 
 
 @app.websocket("/ws/{room_id}")

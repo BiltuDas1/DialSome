@@ -197,5 +197,23 @@ ApplicationWindow {
         Item {
             Layout.fillHeight: true
         }
+
+        Button {
+            text: "Login with Google"
+            onClicked: myBackend.loginWithGoogle("87640868239-dje4suitg3fi100c8hirlunckcji4g40.apps.googleusercontent.com")
+        }
+
+        Connections {
+            target: myBackend
+            function onLoginFinished(email, name, token) {
+                console.log("QML Success: " + name + " (" + email + ")");
+                myBackend.setMessage("Logged in as: " + name);
+            }
+
+            function onLoginError(error) {
+                console.log("QML Error: " + error);
+                myBackend.setMessage("Login Error: " + error);
+            }
+        }
     }
 }

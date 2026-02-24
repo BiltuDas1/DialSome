@@ -187,3 +187,55 @@ void Backend::fetchStartupData() {
 }
 
 bool Backend::serverConnected() const { return m_serverConnected; }
+
+
+extern "C" {
+JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_GoogleLoginManager_onLoginSuccess(
+    JNIEnv* env, jobject, jstring idToken, jstring email, jstring displayName) {
+    if (!s_instance) return;
+    QString token = QJniObject(idToken).toString();
+    QString mail = QJniObject(email).toString();
+    QString name = QJniObject(displayName).toString();
+
+    qDebug() << "================ GOOGLE LOGIN SUCCESS ================";
+    qDebug() << "Name: " << name;
+    qDebug() << "Mail: " << mail;
+    qDebug() << "Token (first 15 chars): " << token.left(15) << "...";
+    qDebug() << "======================================================";
+
+    if (!s_instance) {
+        qDebug() << "ERROR: s_instance is null in onLoginSuccess!";
+        return;
+    }
+    
+    QMetaObject::invokeMethod(s_instance, [=]() {
+        emit s_instance->loginFinished(mail, name, token);
+    }, Qt::QueuedConnection);
+}
+
+JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_GoogleLoginManager_onLoginError(
+    JNIEnv* env, jobject, jstring error) {
+
+    QString errorStr = QJniObject(error).toString();
+    qDebug() << "XXXX GOOGLE LOGIN ERROR XXXX: " << errorStr;
+    
+    if (!s_instance) return;
+    QMetaObject::invokeMethod(s_instance, [=]() {
+        emit s_instance->loginError(errorStr);
+    }, Qt::QueuedConnection);
+}
+}
+
+void Backend::loginWithGoogle(const QString &webClientId) {
+#ifdef Q_OS_ANDROID
+    QJniObject context = QNativeInterface::QAndroidApplication::context();
+    m_googleLogin = QJniObject("com/github/biltudas1/dialsome/GoogleLoginManager");
+    
+    if (m_googleLogin.isValid()) {
+        m_googleLogin.callMethod<void>("signIn", 
+            "(Landroid/content/Context;Ljava/lang/String;)V", 
+            context.object(), 
+            QJniObject::fromString(webClientId).object());
+    }
+#endif
+}
