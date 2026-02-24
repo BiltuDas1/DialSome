@@ -14,10 +14,11 @@ Backend::Backend(QObject *parent) : QObject(parent) {
     s_instance = this;
 
     connect(this, &Backend::settingsLoaded, this, [this]() {
-        QUrl url("https://" + this->m_settings->value("Server/host").toString());
+        QString hostUrl = "https://" + this->m_settings->value("Server/host").toString();
+        QUrl url(hostUrl);
         QNetworkRequest request(url);
 
-        qDebug() << "Attempting to connect to the server...";
+        qDebug() << "Attempting to connect to the server..." + hostUrl;
 
         QNetworkReply *reply = m_networkManager.get(request);
         connect(reply, &QNetworkReply::finished, this, [this, reply]() {
@@ -85,8 +86,8 @@ void Backend::startCall(const QString &roomId) {
 
         setMessage("Connecting to Room: " + roomId);
         // Ensure this IP matches your local server IP
-        QString wsURL = "ws://" + this->m_settings->value("Server/host").toString() + "/ws/";
-        m_webSocket.open(QUrl(wsURL + roomId));
+        QString wsURL = "wss://" + this->m_settings->value("Server/host").toString() + "/ws/" + roomId;
+        m_webSocket.open(QUrl(wsURL));
 
         QJniObject context = QNativeInterface::QAndroidApplication::context();
         m_webrtc = QJniObject("com/github/biltudas1/dialsome/WebRTCManager");

@@ -1,13 +1,18 @@
 name: Android Release
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'android/AndroidManifest.xml'
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+      is_prerelease:
+        type: boolean
+        required: false
+        default: false
 
 jobs:
-  release:
+  release_armeabi-v7a:
     runs-on: ubuntu-latest
     container:
       image: carlonluca/qt-dev:6.10.2
@@ -22,29 +27,13 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Get Version
-        id: version
-        run: bash .github/scripts/get-version.sh
-
-      - name: Check if Release Exists
-        id: check
-        run: bash .github/scripts/check-release.sh
-        env:
-          VERSION: ${{ steps.version.outputs.VERSION }}
-          GH_TOKEN: ${{ github.token }}
+      - name: Prepare Signing Key
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > /tmp/release.keystore
 
       - name: Build and Sign APK (armeabi-v7a)
-        if: steps.check.outputs.skip == 'false'
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > /tmp/release.keystore
-          
-          # Configure
           /opt/qt/6.10.2/android_armv7/bin/qt-cmake -S . -B build-armeabi-v7a -GNinja -DCMAKE_BUILD_TYPE=Release
-            
-          # Compile
           /opt/qt/6.10.2/android_armv7/bin/qt-cmake --build ./build-armeabi-v7a --target all
-          
-          # Deploy and Sign
           /opt/Qt-amd64-6.10.2/bin/androiddeployqt \
             --input ./build-armeabi-v7a/android-DialSome-deployment-settings.json \
             --output ./build-armeabi-v7a/android-build \
@@ -55,18 +44,50 @@ jobs:
             --storepass '${{ secrets.KEYSTORE_PASSWORD }}' \
             --keypass '${{ secrets.KEY_PASSWORD }}'
 
-      - name: Build and Sign APK (arm64-v8a)
-        if: steps.check.outputs.skip == 'false'
+      - name: Generate Changelog
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > /tmp/release.keystore
-          
-          # Configure
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          bash .github/scripts/generate-changelog.sh
+
+      - name: Rename APK for Release
+        run: |
+          mv "./build-armeabi-v7a/android-build/build/outputs/apk/release/android-build-release-signed.apk" \
+             "./build-armeabi-v7a/android-build/build/outputs/apk/release/DialSome-${{ inputs.version }}-armeabi-v7a.apk"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2.5.0
+        with:
+          tag_name: ${{ inputs.version }}
+          name: Release ${{ inputs.version }}
+          body_path: changelog.md
+          prerelease: ${{ inputs.is_prerelease }}
+          files: |
+            ./build-armeabi-v7a/android-build/build/outputs/apk/release/DialSome-${{ inputs.version }}-armeabi-v7a.apk
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  release_arm64-v8a:
+    runs-on: ubuntu-latest
+    container:
+      image: carlonluca/qt-dev:6.10.2
+    
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Prepare Signing Key
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > /tmp/release.keystore
+
+      - name: Build and Sign APK (arm64-v8a)
+        run: |
           /opt/qt/6.10.2/android_arm64_v8a/bin/qt-cmake -S . -B build-arm64-v8a -GNinja -DCMAKE_BUILD_TYPE=Release
-            
-          # Compile
           /opt/qt/6.10.2/android_arm64_v8a/bin/qt-cmake --build ./build-arm64-v8a --target all
-          
-          # Deploy and Sign
           /opt/Qt-amd64-6.10.2/bin/androiddeployqt \
             --input ./build-arm64-v8a/android-DialSome-deployment-settings.json \
             --output ./build-arm64-v8a/android-build \
@@ -78,31 +99,23 @@ jobs:
             --keypass '${{ secrets.KEY_PASSWORD }}'
 
       - name: Generate Changelog
-        if: steps.check.outputs.skip == 'false'
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           bash .github/scripts/generate-changelog.sh
 
       - name: Rename APK for Release
-        if: steps.check.outputs.skip == 'false'
         run: |
-          OLD_PATH="./build-armeabi-v7a/android-build/build/outputs/apk/release/android-build-release-signed.apk"
-          NEW_NAME="./build-armeabi-v7a/android-build/build/outputs/apk/release/DialSome-${{ steps.version.outputs.VERSION }}-armeabi-v7a.apk"
-          mv "$OLD_PATH" "$NEW_NAME"
-          OLD_PATH="./build-arm64-v8a/android-build/build/outputs/apk/release/android-build-release-signed.apk"
-          NEW_NAME="./build-arm64-v8a/android-build/build/outputs/apk/release/DialSome-${{ steps.version.outputs.VERSION }}-arm64-v8a.apk"
-          mv "$OLD_PATH" "$NEW_NAME"
+          mv "./build-arm64-v8a/android-build/build/outputs/apk/release/android-build-release-signed.apk" \
+             "./build-arm64-v8a/android-build/build/outputs/apk/release/DialSome-${{ inputs.version }}-arm64-v8a.apk"
 
       - name: Create GitHub Release
-        if: steps.check.outputs.skip == 'false'
         uses: softprops/action-gh-release@v2.5.0
         with:
-          tag_name: ${{ steps.version.outputs.VERSION }}
-          name: Release ${{ steps.version.outputs.VERSION }}
+          tag_name: ${{ inputs.version }}
+          name: Release ${{ inputs.version }}
           body_path: changelog.md
-          prerelease: ${{ steps.version.outputs.IS_PRERELEASE == 'true' }}
+          prerelease: ${{ inputs.is_prerelease }}
           files: |
-            ./build-armeabi-v7a/android-build/build/outputs/apk/release/DialSome-${{ steps.version.outputs.VERSION }}-armeabi-v7a.apk
-            ./build-arm64-v8a/android-build/build/outputs/apk/release/DialSome-${{ steps.version.outputs.VERSION }}-arm64-v8a.apk
+            ./build-arm64-v8a/android-build/build/outputs/apk/release/DialSome-${{ inputs.version }}-arm64-v8a.apk
         env:
           GITHUB_TOKEN: ${{ github.token }}

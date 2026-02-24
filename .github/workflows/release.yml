@@ -1,0 +1,50 @@
+name: Release and Publish
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'android/AndroidManifest.xml'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+      is_prerelease: ${{ steps.version.outputs.IS_PRERELEASE }}
+      skip: ${{ steps.check_release.outputs.skip }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        run: bash .github/scripts/get-version.sh
+
+      - name: Check for existing release
+        id: check_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: bash .github/scripts/check-release.sh
+
+  build_android:
+    needs: check
+    if: needs.check.outputs.skip == 'false'
+    uses: ./.github/workflows/build-android.yml
+    with:
+      version: ${{ needs.check.outputs.version }}
+      is_prerelease: ${{ needs.check.outputs.is_prerelease == 'true' }}
+    secrets: inherit
+
+  build_docker:
+    needs: check
+    if: needs.check.outputs.skip == 'false'
+    uses: ./.github/workflows/build-docker.yml
+    with:
+      version: ${{ needs.check.outputs.version }}
+    secrets: inherit
