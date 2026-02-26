@@ -26,7 +26,7 @@ ApplicationWindow {
 
     StackView {
         id: mainStack
-        anchors.fill: parent.contentItem
+        anchors.fill: parent
         initialItem: myBackend.isLoggedIn() ? mainDashboardComponent : loginPageComponent
     }
 
