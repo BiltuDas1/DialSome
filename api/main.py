@@ -1,17 +1,30 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from fastapi import status
+from core import lifespan
 from routers import voicecallRouter, usersRouter
 from core import settings
+import database
+
 
 app = FastAPI(
   title="DialSome",
   docs_url=settings.DOCS_URL,
   redoc_url=settings.REDOC_URL,
   openapi_url=settings.OPENAPI_URL,
+  lifespan=lifespan.APILifespan,
 )
 app.include_router(voicecallRouter.router)
 app.include_router(usersRouter.router)
+
+# Initialize Database ORM
+database.InitializeORM(app, settings.POSTGREDSQL_URI)
+
+# Initialize Cache Database
+_ = database.CACHE
+
+# Initialize Auth Storage
+_ = database.AUTH_STORAGE
 
 
 @app.get("/")
@@ -20,8 +33,12 @@ async def root():
     {"status": True, "message": "Service is working"}, status_code=status.HTTP_200_OK
   )
 
+@app.head("/")
+async def root_head():
+  return
 
-rooms = {}
+
+rooms: dict[str, list[WebSocket]] = {}
 
 
 @app.websocket("/ws/{room_id}")

@@ -12,6 +12,7 @@
 #include <QNetworkRequest>
 #include <QSettings>
 #include <QScopedPointer>
+#include "securestorage.h"
 
 class Backend : public QObject {
     Q_OBJECT
@@ -28,11 +29,20 @@ public:
     void handleLocalSdp(const QJsonObject &json);
     Q_INVOKABLE void fetchStartupData();
     bool serverConnected() const;
+    Q_INVOKABLE void loginWithGoogle(const QString &webClientId);
+    Q_INVOKABLE void showToast(const QString &message);
+    Q_INVOKABLE void createFile(const QString &fileName, const QString &content);
+    Q_INVOKABLE bool isLoggedIn();
 
 signals:
     void messageChanged();
     void settingsLoaded();
     void serverConnectionChanged();
+    void dataCollectionFinished(const QString &email, const QString &displayName, const QString &idToken, const QString &userID);
+    void dataCollectionError(const QString &error);
+    void registerFinished(const QString &idToken);
+    void loginFinished(const QString &email, const QString &displayName, const QString &userID, const QString &refresh_token);
+    void loginError(const QString &error);
 
 private slots:
     void onTextMessageReceived(const QString &message);
@@ -45,6 +55,9 @@ private:
     QJniObject m_webrtc;
     QScopedPointer<QSettings> m_settings;
     bool m_serverConnected = false;
+    QJniObject m_googleLogin;
+    SecureStorage m_storage;
+    QString m_jwtAccessToken = "";
 };
 
 #endif

@@ -36,6 +36,9 @@ qt_add_qml_module(DialSome
         Main.qml
     SOURCES
         backend.h backend.cpp
+        QML_FILES LoginPage.qml
+        QML_FILES MainPage.qml
+        SOURCES securestorage.h securestorage.cpp
 )
 
 qt_add_resources(DialSome "configs"
