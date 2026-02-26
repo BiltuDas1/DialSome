@@ -1,8 +1,10 @@
 from models import User
-from core import logger
+from core import logger, settings
+from utils import jwt
+from database import AUTH_STORAGE
 
 
-async def is_user_exist(email: str) -> User | None:
+async def login(email: str) -> tuple[User, jwt.JWT] | None:
   """
   Checks if the user record exist in the database or not
   """
@@ -10,4 +12,12 @@ async def is_user_exist(email: str) -> User | None:
   if user is None:
     logger.LOGGER.debug(f"User doesn't exist: {email}")
     return None
-  return user
+  
+  new_jwt = jwt.JWT(user)
+  await AUTH_STORAGE.add_token(
+    jti=new_jwt.refresh_token.get_jti(),
+    user_id=str(user.id),
+    expire_at=settings.REFRESH_TOKEN_EXPIRY
+  )
+
+  return user, new_jwt

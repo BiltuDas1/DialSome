@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Header, HTTPException, status
 from fastapi.responses import JSONResponse
 from typing import Annotated
-from utils import google_service, jwt, auth_token
+from utils import google_service
 from models import User
 from core import logger
 from services import users
@@ -22,14 +22,12 @@ async def login_user(authorization: Annotated[str | None, Header()] = None):
   token = authorization.split(" ")[1]
   try:
     result = google_service.verify_google_token(token)
-    user = await users.is_user_exist(email=result["email"])
-    if user is None:
+    result = await users.login(result["email"])
+    if result is None:
       return JSONResponse(
         content={"status": False, "message": "User doesn't exist"},
         status_code=status.HTTP_404_NOT_FOUND,
       )
-    
-    jwt_token: auth_token.AuthToken = jwt.JWT(user)
 
     logger.LOGGER.debug("Login Successful")
     return JSONResponse(
@@ -37,11 +35,11 @@ async def login_user(authorization: Annotated[str | None, Header()] = None):
         "status": True, 
         "message": "Login Successful",
         "data": {
-          "id": str(user.id),
-          "email": user.email,
-          "firstname": user.firstname,
-          "lastname": user.lastname,
-          "jwt": jwt_token.to_dict()
+          "id": str(result[0].id),
+          "email": result[0].email,
+          "firstname": result[0].firstname,
+          "lastname": result[0].lastname,
+          "jwt": result[1].to_dict()
         }
       },
       status_code=status.HTTP_200_OK,

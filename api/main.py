@@ -1,8 +1,9 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from fastapi import status
+from core import lifespan
 from routers import voicecallRouter, usersRouter
-from core import settings, lifecycle
+from core import settings
 import database
 
 
@@ -11,13 +12,19 @@ app = FastAPI(
   docs_url=settings.DOCS_URL,
   redoc_url=settings.REDOC_URL,
   openapi_url=settings.OPENAPI_URL,
-  lifespan=lifecycle.APILifespan,
+  lifespan=lifespan.APILifespan,
 )
 app.include_router(voicecallRouter.router)
 app.include_router(usersRouter.router)
 
 # Initialize Database ORM
 database.InitializeORM(app, settings.POSTGREDSQL_URI)
+
+# Initialize Cache Database
+_ = database.CACHE
+
+# Initialize Auth Storage
+_ = database.AUTH_STORAGE
 
 
 @app.get("/")

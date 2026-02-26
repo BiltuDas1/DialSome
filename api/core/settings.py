@@ -8,6 +8,11 @@ REDOC_URL = "/redoc" if DEBUG else None
 OPENAPI_URL = "/openapi.json" if DEBUG else None
 CLIENT_ID = "87640868239-dje4suitg3fi100c8hirlunckcji4g40.apps.googleusercontent.com"
 
+# Load REDIS_URI Environment Variable
+if not ENV.exist("REDIS_URI"):
+  raise EnvironmentError("REDIS_URI can't be empty")
+REDIS_URI = str(ENV.get("REDIS_URI"))
+
 # Load POSTGRESQL_URI Environment Variable
 if not ENV.exist("POSTGRESQL_URI"):
   raise EnvironmentError("POSTGRESQL_URI doesn't exist")
