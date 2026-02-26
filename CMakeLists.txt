@@ -35,10 +35,10 @@ qt_add_qml_module(DialSome
     QML_FILES
         Main.qml
     SOURCES
-        backend.h backend.cpp
-        QML_FILES LoginPage.qml
-        QML_FILES MainPage.qml
-        SOURCES securestorage.h securestorage.cpp
+        src/backend.h src/backend.cpp
+        QML_FILES ui/LoginPage.qml
+        QML_FILES ui/MainPage.qml
+        SOURCES src/lib/securestorage.h src/lib/securestorage.cpp
 )
 
 qt_add_resources(DialSome "configs"
@@ -52,6 +52,8 @@ target_link_libraries(DialSome PRIVATE
     Qt6::Network
     Qt6::WebSockets
 )
+
+target_include_directories(DialSome PRIVATE src)
 
 if(ANDROID)
     set_property(TARGET DialSome PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR

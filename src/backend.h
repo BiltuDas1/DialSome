@@ -12,7 +12,7 @@
 #include <QNetworkRequest>
 #include <QSettings>
 #include <QScopedPointer>
-#include "securestorage.h"
+#include "lib/securestorage.h"
 
 class Backend : public QObject {
     Q_OBJECT
