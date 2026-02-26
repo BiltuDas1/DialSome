@@ -20,13 +20,22 @@ apply plugin: qtGradlePluginType
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
     //noinspection GradleDependency
-    implementation 'androidx.core:core:1.16.0'
+    implementation("androidx.core:core:1.16.0")
     implementation("io.github.webrtc-sdk:android:137.7151.05")
 
     // Google Login
     implementation("androidx.credentials:credentials:1.5.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.2.0")
+
+    // For storing encrypted data
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+    implementation("androidx.datastore:datastore-preferences-rxjava3:1.1.1")
+    implementation("androidx.datastore:datastore-rxjava3:1.1.1")
+    implementation("io.reactivex.rxjava3:rxandroid:3.0.2") 
+
+    implementation("com.google.crypto.tink:tink-android:1.15.0")
+    implementation("io.reactivex.rxjava3:rxjava:3.1.12")
 }
 
 android {

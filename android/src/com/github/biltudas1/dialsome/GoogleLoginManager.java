@@ -16,10 +16,10 @@ public class GoogleLoginManager {
     private static final String TAG = "DialSomeLogin";
 
     // Native callback to C++
-    public native void onLoginSuccess(String idToken, String email, String displayName);
+    public native void onLoginSuccess(String idToken, String email, String displayName, String userID);
     public native void onLoginError(String error);
 
-    public void signIn(Context context, String webClientId) {
+    public void signIn(Context context, String webClientId, boolean autoLogin) {
         Log.d(TAG, "signIn called with clientID: " + webClientId);
         
         Activity activity = (Activity) context;
@@ -27,8 +27,9 @@ public class GoogleLoginManager {
         Executor executor = ContextCompat.getMainExecutor(context);
 
         GetGoogleIdOption googleIdOption = new GetGoogleIdOption.Builder()
-                .setFilterByAuthorizedAccounts(false)
+                .setFilterByAuthorizedAccounts(autoLogin)
                 .setServerClientId(webClientId)
+                .setAutoSelectEnabled(autoLogin)
                 .build();
 
         GetCredentialRequest request = new GetCredentialRequest.Builder()
@@ -53,8 +54,9 @@ public class GoogleLoginManager {
                         Log.d(TAG, "Success: Extracted GoogleIdTokenCredential");
                         onLoginSuccess(
                             googleIdTokenCredential.getIdToken(),
-                            googleIdTokenCredential.getId(),
-                            googleIdTokenCredential.getDisplayName()
+                            googleIdTokenCredential.getEmail(),
+                            googleIdTokenCredential.getDisplayName(),
+                            googleIdTokenCredential.getUniqueId()
                         );
                     } catch (Exception e) {
                         Log.e(TAG, "Failed to parse Google ID Token: " + e.getMessage());

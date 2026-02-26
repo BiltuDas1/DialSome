@@ -20,7 +20,7 @@ Backend::Backend(QObject *parent) : QObject(parent) {
 
         qDebug() << "Attempting to connect to the server..." + hostUrl;
 
-        QNetworkReply *reply = m_networkManager.get(request);
+        QNetworkReply *reply = m_networkManager.head(request);
         connect(reply, &QNetworkReply::finished, this, [this, reply]() {
             if (reply->error() == QNetworkReply::NoError) {
                 qDebug() << "Server Connected";
@@ -32,6 +32,103 @@ Backend::Backend(QObject *parent) : QObject(parent) {
             reply->deleteLater();
         });
 
+    });
+
+    connect(this, &Backend::dataCollectionFinished, this, [this](const QString &email, const QString &displayName, const QString &idToken, const QString &userID) {
+        QString hostUrl = "https://" + this->m_settings->value("Server/host").toString() + "/users/register";
+        QUrl url(hostUrl);
+        QNetworkRequest request(url);
+        request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+        request.setRawHeader("Authorization", "Bearer " + idToken.toUtf8());
+
+        QNetworkReply *reply = m_networkManager.post(request, QByteArray());
+        connect(reply, &QNetworkReply::finished, this, [this, reply, idToken]() {
+            int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            qDebug() << "HTTP Status Code:" << statusCode;
+
+            if (statusCode == 201 || statusCode == 409) {
+                QByteArray responseData = reply->readAll();
+
+                QJsonParseError parseError;
+                QJsonDocument jsonDoc = QJsonDocument::fromJson(responseData, &parseError);
+
+                if (parseError.error == QJsonParseError::NoError && jsonDoc.isObject()) {
+                    QJsonObject jsonObj = jsonDoc.object();
+
+                    if (jsonObj.contains("status")) {
+                        bool statusValue = jsonObj.value("status").toBool();
+                        qDebug() << "Server Status:" << statusValue;
+                        emit this->registerFinished(idToken);
+                    }
+                } else {
+                    qDebug() << "JSON Parse Error:" << parseError.errorString();
+                    emit this->loginError("Network Error");
+                }
+            } else {
+                qDebug() << "Network Error:" << reply->errorString();
+                emit this->loginError("Network Error");
+            }
+            reply->deleteLater();
+        });
+    });
+
+    connect(this, &Backend::registerFinished, this, [this](const QString &idToken) {
+        QString hostUrl = "https://" + this->m_settings->value("Server/host").toString() + "/users/login";
+        QUrl url(hostUrl);
+        QNetworkRequest request(url);
+        request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+        request.setRawHeader("Authorization", "Bearer " + idToken.toUtf8());
+
+        QNetworkReply *reply = m_networkManager.post(request, QByteArray());
+        connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+            int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            qDebug() << "HTTP Status Code:" << statusCode;
+
+            if (reply->error() == QNetworkReply::NoError && statusCode == 200) {
+                QByteArray responseData = reply->readAll();
+
+                QJsonParseError parseError;
+                QJsonDocument jsonDoc = QJsonDocument::fromJson(responseData, &parseError);
+
+                if (parseError.error == QJsonParseError::NoError && jsonDoc.isObject()) {
+                    QJsonObject jsonObj = jsonDoc.object();
+
+                    if (jsonObj.contains("status")) {
+                        bool statusValue = jsonObj.value("status").toBool();
+                        qDebug() << "Server Status:" << statusValue;
+                        
+                        if (statusValue && jsonObj.contains("data")) {
+                            QJsonObject dataJson = jsonObj.value("data").toObject();
+                            if (dataJson.contains("id") && dataJson.contains("email") && dataJson.contains("firstname") && dataJson.contains("lastname")) {
+                                QString id = dataJson.value("id").toString();
+                                QString email = dataJson.value("email").toString();
+                                QString firstname = dataJson.value("firstname").toString();
+
+                                if (dataJson.contains("jwt")) {
+                                    QJsonObject jwtJson = dataJson.value("jwt").toObject();
+                                    if (jwtJson.contains("refresh_token") && jwtJson.contains("access_token")) {
+                                        QString refresh_token = jwtJson.value("refresh_token").toString();
+                                        this->m_jwtAccessToken = jwtJson.value("access_token").toString();
+                                        emit this->loginFinished(email, firstname, id, refresh_token);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    qDebug() << "JSON Parse Error:" << parseError.errorString();
+                    emit this->loginError("Network Error");
+                }
+            } else {
+                qDebug() << "Network Error:" << reply->errorString();
+                emit this->loginError("Network Error");
+            }
+            reply->deleteLater();
+        });
+    });
+
+    connect(this, &Backend::loginFinished, this, [this](const QString &email, const QString &displayName, const QString &userID, const QString &refresh_token) {
+        this->m_storage.saveRefreshToken(refresh_token);
     });
 
     connect(&m_webSocket, &QWebSocket::connected, this, &Backend::onConnected);
@@ -191,14 +288,16 @@ bool Backend::serverConnected() const { return m_serverConnected; }
 
 extern "C" {
 JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_GoogleLoginManager_onLoginSuccess(
-    JNIEnv* env, jobject, jstring idToken, jstring email, jstring displayName) {
+    JNIEnv* env, jobject, jstring idToken, jstring email, jstring displayName, jstring userID) {
     if (!s_instance) return;
     QString token = QJniObject(idToken).toString();
     QString mail = QJniObject(email).toString();
     QString name = QJniObject(displayName).toString();
+    QString userid = QJniObject(userID).toString();
 
     qDebug() << "================ GOOGLE LOGIN SUCCESS ================";
     qDebug() << "Name: " << name;
+    qDebug() << "UserID: " << userid;
     qDebug() << "Mail: " << mail;
     qDebug() << "Token (first 15 chars): " << token.left(15) << "...";
     qDebug() << "======================================================";
@@ -209,7 +308,7 @@ JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_GoogleLoginManager_onL
     }
     
     QMetaObject::invokeMethod(s_instance, [=]() {
-        emit s_instance->loginFinished(mail, name, token);
+        emit s_instance->dataCollectionFinished(mail, name, token, userid);
     }, Qt::QueuedConnection);
 }
 
@@ -217,11 +316,11 @@ JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_GoogleLoginManager_onL
     JNIEnv* env, jobject, jstring error) {
 
     QString errorStr = QJniObject(error).toString();
-    qDebug() << "XXXX GOOGLE LOGIN ERROR XXXX: " << errorStr;
+    qDebug() << "GOOGLE LOGIN ERROR: " << errorStr;
     
     if (!s_instance) return;
     QMetaObject::invokeMethod(s_instance, [=]() {
-        emit s_instance->loginError(errorStr);
+        emit s_instance->dataCollectionError(errorStr);
     }, Qt::QueuedConnection);
 }
 }
@@ -230,12 +329,56 @@ void Backend::loginWithGoogle(const QString &webClientId) {
 #ifdef Q_OS_ANDROID
     QJniObject context = QNativeInterface::QAndroidApplication::context();
     m_googleLogin = QJniObject("com/github/biltudas1/dialsome/GoogleLoginManager");
-    
+
+    bool autoLogin = this->m_storage.exists("refresh_token");
     if (m_googleLogin.isValid()) {
         m_googleLogin.callMethod<void>("signIn", 
-            "(Landroid/content/Context;Ljava/lang/String;)V", 
+            "(Landroid/content/Context;Ljava/lang/String;Z)V", 
             context.object(), 
-            QJniObject::fromString(webClientId).object());
+            QJniObject::fromString(webClientId).object(),
+            autoLogin
+        );
     }
 #endif
+}
+
+void Backend::showToast(const QString &message) {
+#ifdef Q_OS_ANDROID
+    // Retrieve the current Android activity instance from the Qt framework
+    QJniObject activity = QNativeInterface::QAndroidApplication::context();
+    
+    if (activity.isValid()) {
+        QJniObject javaMessage = QJniObject::fromString(message);
+        
+        // Call the static Java method in your new AndroidUtils class
+        QJniObject::callStaticMethod<void>(
+            "com/github/biltudas1/dialsome/AndroidUtils",
+            "showToast",
+            "(Landroid/app/Activity;Ljava/lang/String;)V",
+            activity.object<jobject>(),
+            javaMessage.object<jstring>()
+        );
+    }
+#else
+    // Fallback for desktop testing
+    qDebug() << "Toast message:" << message;
+#endif
+}
+
+void Backend::createFile(const QString &fileName, const QString &content) {
+    QString path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/" + fileName;
+    QFile file(path);
+    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&file);
+        out << content;
+        file.close();
+    }
+}
+
+bool Backend::isLoggedIn() {
+    if (this->m_storage.exists("refresh_token")) {
+        return true;
+    } else {
+        return false;
+    }
 }
