@@ -38,7 +38,6 @@ jobs:
     uses: ./.github/workflows/build-android.yml
     with:
       version: ${{ needs.check.outputs.version }}
-      is_prerelease: ${{ needs.check.outputs.is_prerelease == 'true' }}
     secrets: inherit
 
   build_docker:
@@ -48,3 +47,33 @@ jobs:
     with:
       version: ${{ needs.check.outputs.version }}
     secrets: inherit
+
+  publish:
+    needs: [check, build_android, build_docker]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download APK Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+          pattern: release-apk-*
+          merge-multiple: true
+
+      - name: Generate Changelog
+        run: bash .github/scripts/generate-changelog.sh
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2.5.0
+        with:
+          tag_name: ${{ needs.check.outputs.version }}
+          name: Release ${{ needs.check.outputs.version }}
+          body_path: changelog.md
+          prerelease: ${{ needs.check.outputs.is_prerelease == 'true' }}
+          files: ./artifacts/*.apk
+        env:
+          GITHUB_TOKEN: ${{ github.token }}

@@ -1,4 +1,4 @@
-name: Android Release
+name: Android Build
 
 on:
   workflow_call:
@@ -6,37 +6,38 @@ on:
       version:
         type: string
         required: true
-      is_prerelease:
-        type: boolean
-        required: false
-        default: false
 
 jobs:
-  release_armeabi-v7a:
+  build:
+    name: Build ${{ matrix.arch }}
     runs-on: ubuntu-latest
     container:
       image: carlonluca/qt-dev:6.10.2
+    strategy:
+      matrix:
+        include:
+          - arch: armeabi-v7a
+            qt_arch: android_armv7
+          - arch: arm64-v8a
+            qt_arch: android_arm64_v8a
     
-    permissions:
-      contents: write
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 0
 
       - name: Prepare Signing Key
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > /tmp/release.keystore
-
-      - name: Build and Sign APK (armeabi-v7a)
         run: |
-          /opt/qt/6.10.2/android_armv7/bin/qt-cmake -S . -B build-armeabi-v7a -GNinja -DCMAKE_BUILD_TYPE=Release
-          /opt/qt/6.10.2/android_armv7/bin/qt-cmake --build ./build-armeabi-v7a --target all
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > /tmp/release.keystore
+
+      - name: Build and Sign APK (${{ matrix.arch }})
+        run: |
+          /opt/qt/6.10.2/${{ matrix.qt_arch }}/bin/qt-cmake -S . -B build-${{ matrix.arch }} -GNinja -DCMAKE_BUILD_TYPE=Release
+          /opt/qt/6.10.2/${{ matrix.qt_arch }}/bin/qt-cmake --build ./build-${{ matrix.arch }} --target all
           /opt/Qt-amd64-6.10.2/bin/androiddeployqt \
-            --input ./build-armeabi-v7a/android-DialSome-deployment-settings.json \
-            --output ./build-armeabi-v7a/android-build \
+            --input ./build-${{ matrix.arch }}/android-DialSome-deployment-settings.json \
+            --output ./build-${{ matrix.arch }}/android-build \
             --android-platform android-36 \
             --jdk=/usr/lib/jvm/java-21-openjdk-amd64 \
             --gradle --release \
@@ -44,78 +45,18 @@ jobs:
             --storepass '${{ secrets.KEYSTORE_PASSWORD }}' \
             --keypass '${{ secrets.KEY_PASSWORD }}'
 
-      - name: Generate Changelog
-        run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          bash .github/scripts/generate-changelog.sh
-
       - name: Rename APK for Release
         run: |
-          mv "./build-armeabi-v7a/android-build/build/outputs/apk/release/android-build-release-signed.apk" \
-             "./build-armeabi-v7a/android-build/build/outputs/apk/release/DialSome-${{ inputs.version }}-armeabi-v7a.apk"
+          mv "./build-${{ matrix.arch }}/android-build/build/outputs/apk/release/android-build-release-signed.apk" \
+             "./DialSome-${{ inputs.version }}-${{ matrix.arch }}.apk"
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2.5.0
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ inputs.version }}
-          name: Release ${{ inputs.version }}
-          body_path: changelog.md
-          prerelease: ${{ inputs.is_prerelease }}
-          files: |
-            ./build-armeabi-v7a/android-build/build/outputs/apk/release/DialSome-${{ inputs.version }}-armeabi-v7a.apk
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+          name: release-apk-${{ matrix.arch }}
+          path: ./DialSome-${{ inputs.version }}-${{ matrix.arch }}.apk
+          retention-days: 1
 
-  release_arm64-v8a:
-    runs-on: ubuntu-latest
-    container:
-      image: carlonluca/qt-dev:6.10.2
-    
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          fetch-depth: 0
-
-      - name: Prepare Signing Key
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > /tmp/release.keystore
-
-      - name: Build and Sign APK (arm64-v8a)
-        run: |
-          /opt/qt/6.10.2/android_arm64_v8a/bin/qt-cmake -S . -B build-arm64-v8a -GNinja -DCMAKE_BUILD_TYPE=Release
-          /opt/qt/6.10.2/android_arm64_v8a/bin/qt-cmake --build ./build-arm64-v8a --target all
-          /opt/Qt-amd64-6.10.2/bin/androiddeployqt \
-            --input ./build-arm64-v8a/android-DialSome-deployment-settings.json \
-            --output ./build-arm64-v8a/android-build \
-            --android-platform android-36 \
-            --jdk=/usr/lib/jvm/java-21-openjdk-amd64 \
-            --gradle --release \
-            --sign /tmp/release.keystore ${{ secrets.KEY_ALIAS }} \
-            --storepass '${{ secrets.KEYSTORE_PASSWORD }}' \
-            --keypass '${{ secrets.KEY_PASSWORD }}'
-
-      - name: Generate Changelog
-        run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          bash .github/scripts/generate-changelog.sh
-
-      - name: Rename APK for Release
-        run: |
-          mv "./build-arm64-v8a/android-build/build/outputs/apk/release/android-build-release-signed.apk" \
-             "./build-arm64-v8a/android-build/build/outputs/apk/release/DialSome-${{ inputs.version }}-arm64-v8a.apk"
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2.5.0
-        with:
-          tag_name: ${{ inputs.version }}
-          name: Release ${{ inputs.version }}
-          body_path: changelog.md
-          prerelease: ${{ inputs.is_prerelease }}
-          files: |
-            ./build-arm64-v8a/android-build/build/outputs/apk/release/DialSome-${{ inputs.version }}-arm64-v8a.apk
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+      - name: Clean Sensitive Data
+        if: always()
+        run: rm -f /tmp/release.keystore
