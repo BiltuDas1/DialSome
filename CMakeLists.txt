@@ -61,3 +61,15 @@ if(ANDROID)
     set_property(TARGET DialSome PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
         ${CMAKE_CURRENT_SOURCE_DIR}/android)
 endif()
+
+if(ANDROID AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set_target_properties(DialSome PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
+    
+    # This forces the linker to strip all debug symbols
+    target_link_options(DialSome PRIVATE "-Wl,--gc-sections" "-Wl,--strip-all")
+endif()
+
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_definitions(-DQT_NO_DEBUG_OUTPUT)
+    set(QT_QML_DEBUG OFF)
+endif()
