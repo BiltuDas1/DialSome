@@ -1,3 +1,5 @@
+import firebase_admin
+from firebase_admin import credentials
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from fastapi import status
@@ -14,6 +16,10 @@ app = FastAPI(
   openapi_url=settings.OPENAPI_URL,
   lifespan=lifespan.APILifespan,
 )
+
+cred = credentials.Certificate("firebase.json")
+firebase_admin.initialize_app(cred)
+
 app.include_router(voicecallRouter.router)
 app.include_router(usersRouter.router)
 
@@ -32,6 +38,7 @@ async def root():
   return JSONResponse(
     {"status": True, "message": "Service is working"}, status_code=status.HTTP_200_OK
   )
+
 
 @app.head("/")
 async def root_head():

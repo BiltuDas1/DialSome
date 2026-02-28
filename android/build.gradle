@@ -7,6 +7,7 @@ buildscript {
     dependencies {
         //noinspection AndroidGradlePluginVersion
         classpath 'com.android.tools.build:gradle:8.10.1'
+        classpath 'com.google.gms:google-services:4.4.4'
     }
 }
 
@@ -36,6 +37,10 @@ dependencies {
 
     implementation("com.google.crypto.tink:tink-android:1.15.0")
     implementation("io.reactivex.rxjava3:rxjava:3.1.12")
+
+    // Firebase
+    implementation platform('com.google.firebase:firebase-bom:34.9.0')
+    implementation('com.google.firebase:firebase-messaging')
 }
 
 android {
@@ -97,3 +102,5 @@ android {
         ndk.abiFilters = qtTargetAbiList.split(",")
     }
 }
+
+apply plugin: 'com.google.gms.google-services'

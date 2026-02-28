@@ -12,8 +12,9 @@ static Backend* s_instance = nullptr;
 
 Backend::Backend(QObject *parent) : QObject(parent) {
     s_instance = this;
-    this->m_storage = new SecureStorage();
+    this->m_storage = new SecureStorage(parent);
     this->m_google = new Google(this, this->m_storage);
+    this->m_fcm = new FCMManager(this->m_storage, "https://" + this->m_settings->value("Server/host").toString(), this);
 
     connect(this, &Backend::settingsLoaded, this, [this]() {
         QString hostUrl = "https://" + this->m_settings->value("Server/host").toString();
@@ -131,8 +132,10 @@ Backend::Backend(QObject *parent) : QObject(parent) {
 
     connect(this, &Backend::loginFinished, this, [this](const QString &email, const QString &displayName, const QString &userID, const QString &refresh_token) {
         this->m_storage->saveRefreshToken(refresh_token);
+        this->m_storage->save("id", userID); 
     });
 
+    connect(this->m_fcm, &FCMManager::callSignalReceived, this, &Backend::onFCMCallReceived);
     connect(&m_webSocket, &QWebSocket::connected, this, &Backend::onConnected);
     connect(&m_webSocket, &QWebSocket::textMessageReceived, this, &Backend::onTextMessageReceived);
 }
@@ -287,3 +290,14 @@ void Backend::fetchStartupData() {
 
 bool Backend::serverConnected() const { return m_serverConnected; }
 
+void Backend::onFCMCallReceived(const QString &type, const QString &sdp, const QString &email) {
+    this->setMessage("Incoming " + type + " from " + email);
+
+    // Pass the SDP to your existing Java WebRTCManager
+    if (this->m_webrtc.isValid() && (type == "offer" || type == "answer")) {
+        this->m_webrtc.callMethod<void>("handleRemoteSdp",
+                                        "(Ljava/lang/String;Ljava/lang/String;)V",
+                                        QJniObject::fromString(sdp).object(),
+                                        QJniObject::fromString(type).object());
+    }
+}

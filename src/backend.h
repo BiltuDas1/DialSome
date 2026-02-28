@@ -13,6 +13,7 @@
 #include <QSettings>
 #include <QScopedPointer>
 #include "lib/google.h"
+#include "fcmmanager.h"
 
 class Backend : public QObject {
     Q_OBJECT
@@ -43,6 +44,7 @@ signals:
 private slots:
     void onTextMessageReceived(const QString &message);
     void onConnected();
+    void onFCMCallReceived(const QString &type, const QString &sdp, const QString &email);
 
 private:
     QString m_message = "Ready";
@@ -54,6 +56,7 @@ private:
     QString m_jwtAccessToken = "";
     QPointer<Google> m_google;
     QPointer<SecureStorage> m_storage;
+    QPointer<FCMManager> m_fcm;
 };
 
 #endif

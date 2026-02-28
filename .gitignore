@@ -86,3 +86,6 @@ CMakeLists.txt.user*
 
 # QML
 .qmlls.ini
+
+# Firebase Service Account
+firebase.json
