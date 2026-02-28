@@ -2,7 +2,7 @@
 #include <QCoreApplication>
 #include <QJniEnvironment>
 
-SecureStorage::SecureStorage() {
+SecureStorage::SecureStorage(QObject *parent) : QObject(parent) {
     // Get the Android Context from the Qt Activity
     QJniObject context = QNativeInterface::QAndroidApplication::context();
 
