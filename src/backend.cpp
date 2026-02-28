@@ -12,6 +12,8 @@ static Backend* s_instance = nullptr;
 
 Backend::Backend(QObject *parent) : QObject(parent) {
     s_instance = this;
+    this->m_storage = new SecureStorage();
+    this->m_google = new Google(this, this->m_storage);
 
     connect(this, &Backend::settingsLoaded, this, [this]() {
         QString hostUrl = "https://" + this->m_settings->value("Server/host").toString();
@@ -34,7 +36,7 @@ Backend::Backend(QObject *parent) : QObject(parent) {
 
     });
 
-    connect(this, &Backend::dataCollectionFinished, this, [this](const QString &email, const QString &displayName, const QString &idToken, const QString &userID) {
+    connect(this->m_google, &Google::dataCollectionFinished, this, [this](const QString &email, const QString &displayName, const QString &idToken, const QString &userID) {
         QString hostUrl = "https://" + this->m_settings->value("Server/host").toString() + "/users/register";
         QUrl url(hostUrl);
         QNetworkRequest request(url);
@@ -128,7 +130,7 @@ Backend::Backend(QObject *parent) : QObject(parent) {
     });
 
     connect(this, &Backend::loginFinished, this, [this](const QString &email, const QString &displayName, const QString &userID, const QString &refresh_token) {
-        this->m_storage.saveRefreshToken(refresh_token);
+        this->m_storage->saveRefreshToken(refresh_token);
     });
 
     connect(&m_webSocket, &QWebSocket::connected, this, &Backend::onConnected);
@@ -285,100 +287,3 @@ void Backend::fetchStartupData() {
 
 bool Backend::serverConnected() const { return m_serverConnected; }
 
-
-extern "C" {
-JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_GoogleLoginManager_onLoginSuccess(
-    JNIEnv* env, jobject, jstring idToken, jstring email, jstring displayName, jstring userID) {
-    if (!s_instance) return;
-    QString token = QJniObject(idToken).toString();
-    QString mail = QJniObject(email).toString();
-    QString name = QJniObject(displayName).toString();
-    QString userid = QJniObject(userID).toString();
-
-    qDebug() << "================ GOOGLE LOGIN SUCCESS ================";
-    qDebug() << "Name: " << name;
-    qDebug() << "UserID: " << userid;
-    qDebug() << "Mail: " << mail;
-    qDebug() << "Token (first 15 chars): " << token.left(15) << "...";
-    qDebug() << "======================================================";
-
-    if (!s_instance) {
-        qDebug() << "ERROR: s_instance is null in onLoginSuccess!";
-        return;
-    }
-    
-    QMetaObject::invokeMethod(s_instance, [=]() {
-        emit s_instance->dataCollectionFinished(mail, name, token, userid);
-    }, Qt::QueuedConnection);
-}
-
-JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_GoogleLoginManager_onLoginError(
-    JNIEnv* env, jobject, jstring error) {
-
-    QString errorStr = QJniObject(error).toString();
-    qDebug() << "GOOGLE LOGIN ERROR: " << errorStr;
-    
-    if (!s_instance) return;
-    QMetaObject::invokeMethod(s_instance, [=]() {
-        emit s_instance->dataCollectionError(errorStr);
-    }, Qt::QueuedConnection);
-}
-}
-
-void Backend::loginWithGoogle(const QString &webClientId) {
-#ifdef Q_OS_ANDROID
-    QJniObject context = QNativeInterface::QAndroidApplication::context();
-    m_googleLogin = QJniObject("com/github/biltudas1/dialsome/GoogleLoginManager");
-
-    bool autoLogin = this->m_storage.exists("refresh_token");
-    if (m_googleLogin.isValid()) {
-        m_googleLogin.callMethod<void>("signIn", 
-            "(Landroid/content/Context;Ljava/lang/String;Z)V", 
-            context.object(), 
-            QJniObject::fromString(webClientId).object(),
-            autoLogin
-        );
-    }
-#endif
-}
-
-void Backend::showToast(const QString &message) {
-#ifdef Q_OS_ANDROID
-    // Retrieve the current Android activity instance from the Qt framework
-    QJniObject activity = QNativeInterface::QAndroidApplication::context();
-    
-    if (activity.isValid()) {
-        QJniObject javaMessage = QJniObject::fromString(message);
-        
-        // Call the static Java method in your new AndroidUtils class
-        QJniObject::callStaticMethod<void>(
-            "com/github/biltudas1/dialsome/AndroidUtils",
-            "showToast",
-            "(Landroid/app/Activity;Ljava/lang/String;)V",
-            activity.object<jobject>(),
-            javaMessage.object<jstring>()
-        );
-    }
-#else
-    // Fallback for desktop testing
-    qDebug() << "Toast message:" << message;
-#endif
-}
-
-void Backend::createFile(const QString &fileName, const QString &content) {
-    QString path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/" + fileName;
-    QFile file(path);
-    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QTextStream out(&file);
-        out << content;
-        file.close();
-    }
-}
-
-bool Backend::isLoggedIn() {
-    if (this->m_storage.exists("refresh_token")) {
-        return true;
-    } else {
-        return false;
-    }
-}

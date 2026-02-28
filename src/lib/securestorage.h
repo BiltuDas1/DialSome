@@ -3,10 +3,13 @@
 
 #include <QString>
 #include <QJniObject>
+#include <QObject>
 
-class SecureStorage {
+class SecureStorage : public QObject {
+    Q_OBJECT
+    
 public:
-    explicit SecureStorage();
+    explicit SecureStorage(QObject *parent = nullptr);
 
     void save(const QString &key, const QString &value);
     QString get(const QString &key);

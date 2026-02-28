@@ -12,13 +12,14 @@
 #include <QNetworkRequest>
 #include <QSettings>
 #include <QScopedPointer>
-#include "lib/securestorage.h"
+#include "lib/google.h"
 
 class Backend : public QObject {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QString message READ message NOTIFY messageChanged)
     Q_PROPERTY(bool serverConnected READ serverConnected NOTIFY serverConnectionChanged)
+    Q_PROPERTY(Google* google READ google CONSTANT)
 
 public:
     explicit Backend(QObject *parent = nullptr);
@@ -29,17 +30,12 @@ public:
     void handleLocalSdp(const QJsonObject &json);
     Q_INVOKABLE void fetchStartupData();
     bool serverConnected() const;
-    Q_INVOKABLE void loginWithGoogle(const QString &webClientId);
-    Q_INVOKABLE void showToast(const QString &message);
-    Q_INVOKABLE void createFile(const QString &fileName, const QString &content);
-    Q_INVOKABLE bool isLoggedIn();
+    Google* google() const { return m_google; }
 
 signals:
     void messageChanged();
     void settingsLoaded();
     void serverConnectionChanged();
-    void dataCollectionFinished(const QString &email, const QString &displayName, const QString &idToken, const QString &userID);
-    void dataCollectionError(const QString &error);
     void registerFinished(const QString &idToken);
     void loginFinished(const QString &email, const QString &displayName, const QString &userID, const QString &refresh_token);
     void loginError(const QString &error);
@@ -55,9 +51,9 @@ private:
     QJniObject m_webrtc;
     QScopedPointer<QSettings> m_settings;
     bool m_serverConnected = false;
-    QJniObject m_googleLogin;
-    SecureStorage m_storage;
     QString m_jwtAccessToken = "";
+    QPointer<Google> m_google;
+    QPointer<SecureStorage> m_storage;
 };
 
 #endif

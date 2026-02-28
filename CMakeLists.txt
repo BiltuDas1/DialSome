@@ -34,11 +34,13 @@ qt_add_qml_module(DialSome
     VERSION 1.0
     QML_FILES
         Main.qml
+        ui/LoginPage.qml
+        ui/MainPage.qml
     SOURCES
+        src/lib/securestorage.h src/lib/securestorage.cpp
+        src/lib/google.h src/lib/google.cpp
+        src/utils.h src/utils.cpp
         src/backend.h src/backend.cpp
-        QML_FILES ui/LoginPage.qml
-        QML_FILES ui/MainPage.qml
-        SOURCES src/lib/securestorage.h src/lib/securestorage.cpp
 )
 
 qt_add_resources(DialSome "configs"
@@ -53,9 +55,21 @@ target_link_libraries(DialSome PRIVATE
     Qt6::WebSockets
 )
 
-target_include_directories(DialSome PRIVATE src)
+target_include_directories(DialSome PRIVATE src src/lib)
 
 if(ANDROID)
     set_property(TARGET DialSome PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
         ${CMAKE_CURRENT_SOURCE_DIR}/android)
+endif()
+
+if(ANDROID AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set_target_properties(DialSome PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
+    
+    # This forces the linker to strip all debug symbols
+    target_link_options(DialSome PRIVATE "-Wl,--gc-sections" "-Wl,--strip-all")
+endif()
+
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_definitions(-DQT_NO_DEBUG_OUTPUT)
+    set(QT_QML_DEBUG OFF)
 endif()

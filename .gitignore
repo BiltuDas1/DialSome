@@ -83,3 +83,6 @@ CMakeLists.txt.user*
 
 # .env files
 .env
+
+# QML
+.qmlls.ini

@@ -25,10 +25,14 @@ ApplicationWindow {
         }
     }
 
+    Utils {
+        id: myUtils
+    }
+
     StackView {
         id: mainStack
         anchors.fill: parent
-        initialItem: myBackend.isLoggedIn() ? mainDashboardComponent : loginPageComponent
+        initialItem: myBackend.google.isLoggedIn() ? mainDashboardComponent : loginPageComponent
     }
 
     Component {
@@ -44,11 +48,11 @@ ApplicationWindow {
     Connections {
         target: myBackend
         function onLoginFinished(email, name, userid, refresh_token) {
-            myBackend.showToast("Welcome " + name)
+            myUtils.showToast("Welcome " + name)
             mainStack.replace(mainDashboardComponent)
         }
         function onLoginError(error) {
-            myBackend.showToast(error)
+            myUtils.showToast(error)
         }
     }
 }
