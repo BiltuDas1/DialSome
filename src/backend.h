@@ -26,7 +26,7 @@ public:
     explicit Backend(QObject *parent = nullptr);
     QString message() const;
     void setMessage(const QString &msg);
-    Q_INVOKABLE void startCall();
+    Q_INVOKABLE void startCall(const QString &email);
     Q_INVOKABLE void joinCall(const QString &roomId);
     void handleLocalIce(const QJsonObject &json);
     void handleLocalSdp(const QJsonObject &json);

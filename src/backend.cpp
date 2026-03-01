@@ -16,7 +16,7 @@ Backend::Backend(QObject *parent) : QObject(parent) {
     this->m_google = new Google(this, this->m_storage);
 
     connect(this, &Backend::settingsLoaded, this, [this]() {
-        QString hostUrl = "http://" + this->m_settings->value("Server/host").toString();
+        QString hostUrl = "https://" + this->m_settings->value("Server/host").toString();
         QUrl url(hostUrl);
         QNetworkRequest request(url);
 
@@ -37,7 +37,7 @@ Backend::Backend(QObject *parent) : QObject(parent) {
     });
 
     connect(this->m_google, &Google::dataCollectionFinished, this, [this](const QString &email, const QString &displayName, const QString &idToken, const QString &userID) {
-        QString hostUrl = "http://" + this->m_settings->value("Server/host").toString() + "/users/register";
+        QString hostUrl = "https://" + this->m_settings->value("Server/host").toString() + "/users/register";
         QUrl url(hostUrl);
         QNetworkRequest request(url);
         request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
@@ -75,7 +75,7 @@ Backend::Backend(QObject *parent) : QObject(parent) {
     });
 
     connect(this, &Backend::registerFinished, this, [this](const QString &idToken) {
-        QString hostUrl = "http://" + this->m_settings->value("Server/host").toString() + "/users/login";
+        QString hostUrl = "https://" + this->m_settings->value("Server/host").toString() + "/users/login";
         QUrl url(hostUrl);
         QNetworkRequest request(url);
         request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
@@ -155,7 +155,7 @@ Backend::Backend(QObject *parent) : QObject(parent) {
         if (!roomId.isEmpty()) {
             qDebug() << "App was woken up for a call! Room:" << roomId;
             // Optionally prompt the user, or immediately join:
-            // joinCall(roomId); 
+            joinCall(roomId);
         }
     #endif
 }
@@ -197,7 +197,7 @@ JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_WebRTCManager_onCallEs
 }
 }
 
-void Backend::startCall() {
+void Backend::startCall(const QString &email) {
 #ifdef Q_OS_ANDROID
     QMicrophonePermission micPermission;
     qApp->requestPermission(micPermission, [this](const QPermission &permission) {
@@ -207,7 +207,7 @@ void Backend::startCall() {
         }
 
         this->m_isCaller = true;
-        QString hostUrl = "http://" + this->m_settings->value("Server/host").toString() + "/voicecall/send";
+        QString hostUrl = "https://" + this->m_settings->value("Server/host").toString() + "/voicecall/send";
         QUrl url(hostUrl);
         QNetworkRequest request(url);
         request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
@@ -232,7 +232,7 @@ void Backend::startCall() {
 
                         // Ensure this IP matches your local server IP
                         this->setMessage("Connecting to the room: " + roomId);
-                        QString wsURL = "ws://" + this->m_settings->value("Server/host").toString() + "/ws/" + roomId;
+                        QString wsURL = "wss://" + this->m_settings->value("Server/host").toString() + "/ws/" + roomId;
                         m_webSocket.open(QUrl(wsURL));
                 
                         QJniObject context = QNativeInterface::QAndroidApplication::context();
@@ -271,7 +271,7 @@ void Backend::joinCall(const QString &roomId) {
 
         // Skip the POST request! We already have the roomId.
         this->setMessage("Joining room: " + roomId);
-        QString wsURL = "ws://" + this->m_settings->value("Server/host").toString() + "/ws/" + roomId;
+        QString wsURL = "wss://" + this->m_settings->value("Server/host").toString() + "/ws/" + roomId;
         m_webSocket.open(QUrl(wsURL));
 
         // Initialize WebRTC exactly like the caller
@@ -359,7 +359,7 @@ void Backend::fetchStartupData() {
                     qDebug() << "File saved successfully at:" << filePath;
 
                     this->m_settings.reset(new QSettings(filePath, QSettings::IniFormat));
-                    this->m_fcm = new FCMManager(this->m_storage, "http://" + this->m_settings->value("Server/host").toString(), this);
+                    this->m_fcm = new FCMManager(this->m_storage, "https://" + this->m_settings->value("Server/host").toString(), this);
 
                     connect(this->m_fcm, &FCMManager::callSignalReceived, this, [this](const QString &type, const QString &roomId, const QString &email) {
                         qDebug() << "Received the response";
@@ -381,7 +381,7 @@ void Backend::fetchStartupData() {
     } else {
         qDebug() << "Loading existing settings from:" << filePath;
         this->m_settings.reset(new QSettings(filePath, QSettings::IniFormat));
-        this->m_fcm = new FCMManager(this->m_storage, "http://" + this->m_settings->value("Server/host").toString(), this);
+        this->m_fcm = new FCMManager(this->m_storage, "https://" + this->m_settings->value("Server/host").toString(), this);
 
         connect(this->m_fcm, &FCMManager::callSignalReceived, this, [this](const QString &type, const QString &roomId, const QString &email) {
             qDebug() << "Received the response";
