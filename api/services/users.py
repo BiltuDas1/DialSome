@@ -12,12 +12,12 @@ async def login(email: str) -> tuple[User, jwt.JWT] | None:
   if user is None:
     logger.LOGGER.debug(f"User doesn't exist: {email}")
     return None
-  
+
   new_jwt = jwt.JWT(user)
   await AUTH_STORAGE.add_token(
     jti=new_jwt.refresh_token.get_jti(),
     user_id=str(user.id),
-    expire_at=settings.REFRESH_TOKEN_EXPIRY
+    expire_at=settings.REFRESH_TOKEN_EXPIRY,
   )
 
   return user, new_jwt

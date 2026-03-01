@@ -1,6 +1,8 @@
 package com.github.biltudas1.dialsome;
 
 import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
 import android.widget.Toast;
 
 public class AndroidUtils {
@@ -17,5 +19,16 @@ public class AndroidUtils {
                 Toast.makeText(activity, message, Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    public static String getIncomingRoomId(Context context) {
+        if (context instanceof android.app.Activity) {
+            android.app.Activity activity = (android.app.Activity) context;
+            android.content.Intent intent = activity.getIntent();
+            if (intent != null && intent.hasExtra("incoming_room_id")) {
+                return intent.getStringExtra("incoming_room_id");
+            }
+        }
+        return "";
     }
 }

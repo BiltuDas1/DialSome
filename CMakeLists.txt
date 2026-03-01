@@ -40,6 +40,7 @@ qt_add_qml_module(DialSome
         src/lib/securestorage.h src/lib/securestorage.cpp
         src/lib/google.h src/lib/google.cpp
         src/utils.h src/utils.cpp
+        src/fcmmanager.h src/fcmmanager.cpp
         src/backend.h src/backend.cpp
 )
 

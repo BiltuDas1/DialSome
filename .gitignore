@@ -86,3 +86,9 @@ CMakeLists.txt.user*
 
 # QML
 .qmlls.ini
+
+# Firebase
+android/google-services.json
+
+# Adb Test folders
+adb/

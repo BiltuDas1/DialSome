@@ -13,6 +13,7 @@
 #include <QSettings>
 #include <QScopedPointer>
 #include "lib/google.h"
+#include "fcmmanager.h"
 
 class Backend : public QObject {
     Q_OBJECT
@@ -25,7 +26,8 @@ public:
     explicit Backend(QObject *parent = nullptr);
     QString message() const;
     void setMessage(const QString &msg);
-    Q_INVOKABLE void startCall(const QString &roomId);
+    Q_INVOKABLE void startCall(const QString &email);
+    Q_INVOKABLE void joinCall(const QString &roomId);
     void handleLocalIce(const QJsonObject &json);
     void handleLocalSdp(const QJsonObject &json);
     Q_INVOKABLE void fetchStartupData();
@@ -54,6 +56,8 @@ private:
     QString m_jwtAccessToken = "";
     QPointer<Google> m_google;
     QPointer<SecureStorage> m_storage;
+    QPointer<FCMManager> m_fcm;
+    bool m_isCaller = false;
 };
 
 #endif

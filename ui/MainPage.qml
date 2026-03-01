@@ -151,7 +151,7 @@ ColumnLayout {
 
             TextField {
                 id: roomInput
-                placeholderText: "Enter Room ID (e.g. 123)"
+                placeholderText: "Enter Email ID"
                 color: "white"
                 background: Rectangle { color: "#333"; radius: 5 }
                 Layout.preferredWidth: 250
@@ -159,7 +159,11 @@ ColumnLayout {
 
             Button {
                 text: "Start / Join Call"
-                onClicked: myBackend.startCall(roomInput.text)
+                onClicked: {
+                    if (roomInput.text.trim().length > 0) {
+                        myBackend.startCall(roomInput.text.trim())
+                    }
+                }
                 Layout.alignment: Qt.AlignHCenter
             }
 
