@@ -200,7 +200,7 @@ JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_WebRTCManager_onCallEs
 void Backend::startCall(const QString &email) {
 #ifdef Q_OS_ANDROID
     QMicrophonePermission micPermission;
-    qApp->requestPermission(micPermission, [this](const QPermission &permission) {
+    qApp->requestPermission(micPermission, [this, email](const QPermission &permission) {
         if (permission.status() != Qt::PermissionStatus::Granted) {
             setMessage("Microphone permission denied!");
             return;
@@ -214,7 +214,7 @@ void Backend::startCall(const QString &email) {
         setMessage("Connecting to the server...");
         
         QJsonObject json;
-        json["email"] = "billionto@gmail.com";
+        json["email"] = email;
 
         QNetworkReply *reply = m_networkManager.post(request, QJsonDocument(json).toJson(QJsonDocument::Compact));
         connect(reply, &QNetworkReply::finished, this, [reply, this]() {
