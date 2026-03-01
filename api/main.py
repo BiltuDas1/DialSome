@@ -17,8 +17,9 @@ app = FastAPI(
   lifespan=lifespan.APILifespan,
 )
 
-cred = credentials.Certificate("firebase.json")
-firebase_admin.initialize_app(cred)
+firebase_admin.initialize_app(
+  credentials.Certificate(settings.FIREBASE_SERVICE_ACCOUNT)
+)
 
 app.include_router(voicecallRouter.router)
 app.include_router(usersRouter.router)

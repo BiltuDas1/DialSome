@@ -21,11 +21,7 @@ async def send_fcm_notification(target_email: str, payload: dict):
   # Data messages allow the app to process logic (like starting WebRTC)
   # even if it's in the background.
   message = messaging.Message(
-    data=payload,
-    token=user.fcm_token,
-    android=messaging.AndroidConfig(
-      priority='high' 
-    )
+    data=payload, token=user.fcm_token, android=messaging.AndroidConfig(priority="high")
   )
 
   # Send the message via Firebase
@@ -38,6 +34,7 @@ async def send_fcm_notification(target_email: str, payload: dict):
 
 class VoiceData(BaseModel):
   email: str
+
 
 @router.post("/send")
 async def call_person(data: VoiceData):

@@ -3,7 +3,7 @@ project(DialSome VERSION 0.1 LANGUAGES CXX)
 
 # Extra Metadatas
 add_definitions(-DGITHUB_REPO="https://github.com/BiltuDas1/DialSome")
-add_definitions(-DGITHUB_CONFIGURATIONS="http://192.168.31.129:8080/settings.ini")
+add_definitions(-DGITHUB_CONFIGURATIONS="https://raw.githubusercontent.com/BiltuDas1/DialSome/refs/heads/main/settings.ini")
 
 find_package(Qt6 REQUIRED COMPONENTS
     Quick
@@ -71,6 +71,6 @@ if(ANDROID AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-    # add_definitions(-DQT_NO_DEBUG_OUTPUT)
+    add_definitions(-DQT_NO_DEBUG_OUTPUT)
     set(QT_QML_DEBUG OFF)
 endif()
