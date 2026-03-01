@@ -1,6 +1,13 @@
 package com.github.biltudas1.dialsome;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.os.Build;
 import android.util.Log;
+import androidx.core.app.NotificationCompat;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 import java.util.Map;
@@ -39,8 +46,41 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
             Log.d(TAG, "FCM Signal: " + type + " Room: " + roomId + " From: " + callerEmail);
 
-            // Notify C++ layer
-            onFCMMessageReceived(type, roomId, callerEmail);
+            try {
+                onFCMMessageReceived(type, roomId, callerEmail);
+            } catch (UnsatisfiedLinkError e) {
+                Log.d("DialSomeFCM", "C++ is dead. Waking up the app via Notification...");
+                wakeUpApp(callerEmail, roomId);
+            }
         }
+    }
+
+    private void wakeUpApp(String callerEmail, String roomId) {
+        Intent intent = new Intent(this, org.qtproject.qt.android.bindings.QtActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        intent.putExtra("incoming_room_id", roomId);
+        intent.putExtra("incoming_caller", callerEmail);
+
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        String channelId = "IncomingCalls";
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(channelId, "Incoming Calls", NotificationManager.IMPORTANCE_HIGH);
+            notificationManager.createNotificationChannel(channel);
+        }
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
+                // YOU MUST HAVE AN ICON HERE, e.g., R.drawable.icon
+                .setSmallIcon(android.R.drawable.ic_menu_call) 
+                .setContentTitle("Incoming Call")
+                .setContentText("Call from " + callerEmail)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_CALL)
+                .setFullScreenIntent(pendingIntent, true) // THIS WAKES UP THE SCREEN
+                .setAutoCancel(true);
+
+        notificationManager.notify(1001, builder.build());
     }
 }

@@ -23,6 +23,9 @@ async def send_fcm_notification(target_email: str, payload: dict):
   message = messaging.Message(
     data=payload,
     token=user.fcm_token,
+    android=messaging.AndroidConfig(
+      priority='high' 
+    )
   )
 
   # Send the message via Firebase
