@@ -14,10 +14,10 @@ Backend::Backend(QObject *parent) : QObject(parent) {
     s_instance = this;
     this->m_storage = new SecureStorage(parent);
     this->m_google = new Google(this, this->m_storage);
-    this->m_fcm = new FCMManager(this->m_storage, "https://" + this->m_settings->value("Server/host").toString(), this);
+    this->m_fcm = new FCMManager(this->m_storage, "http://" + this->m_settings->value("Server/host").toString(), this);
 
     connect(this, &Backend::settingsLoaded, this, [this]() {
-        QString hostUrl = "https://" + this->m_settings->value("Server/host").toString();
+        QString hostUrl = "http://" + this->m_settings->value("Server/host").toString();
         QUrl url(hostUrl);
         QNetworkRequest request(url);
 
@@ -38,7 +38,7 @@ Backend::Backend(QObject *parent) : QObject(parent) {
     });
 
     connect(this->m_google, &Google::dataCollectionFinished, this, [this](const QString &email, const QString &displayName, const QString &idToken, const QString &userID) {
-        QString hostUrl = "https://" + this->m_settings->value("Server/host").toString() + "/users/register";
+        QString hostUrl = "http://" + this->m_settings->value("Server/host").toString() + "/users/register";
         QUrl url(hostUrl);
         QNetworkRequest request(url);
         request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
@@ -76,7 +76,7 @@ Backend::Backend(QObject *parent) : QObject(parent) {
     });
 
     connect(this, &Backend::registerFinished, this, [this](const QString &idToken) {
-        QString hostUrl = "https://" + this->m_settings->value("Server/host").toString() + "/users/login";
+        QString hostUrl = "http://" + this->m_settings->value("Server/host").toString() + "/users/login";
         QUrl url(hostUrl);
         QNetworkRequest request(url);
         request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
@@ -135,7 +135,13 @@ Backend::Backend(QObject *parent) : QObject(parent) {
         this->m_storage->save("id", userID); 
     });
 
-    connect(this->m_fcm, &FCMManager::callSignalReceived, this, &Backend::onFCMCallReceived);
+    connect(this->m_fcm, &FCMManager::callSignalReceived, this, [this](const QString &type, const QString &roomId, const QString &email) {
+        if (type == "incoming_call") {
+            this->setMessage("Incoming call from " + email);
+            this->joinCall(roomId); 
+        }
+    });
+
     connect(&m_webSocket, &QWebSocket::connected, this, &Backend::onConnected);
     connect(&m_webSocket, &QWebSocket::textMessageReceived, this, &Backend::onTextMessageReceived);
 }
@@ -177,7 +183,68 @@ JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_WebRTCManager_onCallEs
 }
 }
 
-void Backend::startCall(const QString &roomId) {
+void Backend::startCall() {
+#ifdef Q_OS_ANDROID
+    QMicrophonePermission micPermission;
+    qApp->requestPermission(micPermission, [this](const QPermission &permission) {
+        if (permission.status() != Qt::PermissionStatus::Granted) {
+            setMessage("Microphone permission denied!");
+            return;
+        }
+
+        this->m_isCaller = true;
+        QString hostUrl = "http://" + this->m_settings->value("Server/host").toString() + "/voicecall/send";
+        QUrl url(hostUrl);
+        QNetworkRequest request(url);
+        request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+        setMessage("Connecting to the server...");
+        
+        QJsonObject json;
+        json["email"] = "billionto@gmail.com";
+
+        QNetworkReply *reply = m_networkManager.post(request, QJsonDocument(json).toJson(QJsonDocument::Compact));
+        connect(reply, &QNetworkReply::finished, this, [reply, this]() {
+            if (reply->error() == QNetworkReply::NoError) {
+                QByteArray responseData = reply->readAll();
+
+                QJsonParseError parseError;
+                QJsonDocument jsonDoc = QJsonDocument::fromJson(responseData, &parseError);
+
+                if (parseError.error == QJsonParseError::NoError && jsonDoc.isObject()) {
+                    QJsonObject jsonObj = jsonDoc.object();
+
+                    if (jsonObj.contains("room_id")) {
+                        QString roomId = jsonObj.value("room_id").toString();
+
+                        // Ensure this IP matches your local server IP
+                        this->setMessage("Connecting to the room: " + roomId);
+                        QString wsURL = "ws://" + this->m_settings->value("Server/host").toString() + "/ws/" + roomId;
+                        m_webSocket.open(QUrl(wsURL));
+                
+                        QJniObject context = QNativeInterface::QAndroidApplication::context();
+                        m_webrtc = QJniObject("com/github/biltudas1/dialsome/WebRTCManager");
+                
+                        if (m_webrtc.isValid()) {
+                            m_webrtc.callMethod<void>("init", "(Landroid/content/Context;)V", context.object());
+                            // Pre-initialize PC so tracks are ready
+                            m_webrtc.callMethod<void>("createPeerConnection");
+                        }
+                    }
+                } else {
+                    qDebug() << "JSON Parse Error:" << parseError.errorString();
+                    this->setMessage("Failed to connect to the server");
+                }
+            } else {
+                qDebug() << "Failed to retrieve RoomID:" << reply->errorString();
+                this->setMessage("Failed to connect to the server");
+            }
+            reply->deleteLater();
+        });
+    });
+#endif
+}
+
+void Backend::joinCall(const QString &roomId) {
 #ifdef Q_OS_ANDROID
     QMicrophonePermission micPermission;
     qApp->requestPermission(micPermission, [this, roomId](const QPermission &permission) {
@@ -186,17 +253,19 @@ void Backend::startCall(const QString &roomId) {
             return;
         }
 
-        setMessage("Connecting to Room: " + roomId);
-        // Ensure this IP matches your local server IP
-        QString wsURL = "wss://" + this->m_settings->value("Server/host").toString() + "/ws/" + roomId;
+        this->m_isCaller = false;
+
+        // Skip the POST request! We already have the roomId.
+        this->setMessage("Joining room: " + roomId);
+        QString wsURL = "ws://" + this->m_settings->value("Server/host").toString() + "/ws/" + roomId;
         m_webSocket.open(QUrl(wsURL));
 
+        // Initialize WebRTC exactly like the caller
         QJniObject context = QNativeInterface::QAndroidApplication::context();
         m_webrtc = QJniObject("com/github/biltudas1/dialsome/WebRTCManager");
 
         if (m_webrtc.isValid()) {
             m_webrtc.callMethod<void>("init", "(Landroid/content/Context;)V", context.object());
-            // Pre-initialize PC so tracks are ready
             m_webrtc.callMethod<void>("createPeerConnection");
         }
     });
@@ -226,8 +295,12 @@ void Backend::onTextMessageReceived(const QString &message) {
     QString type = json["type"].toString();
 
     if (type == "join") {
-        setMessage("Peer joined. Initiating WebRTC...");
-        m_webrtc.callMethod<void>("createOffer");
+        if (this->m_isCaller) {
+            setMessage("Peer joined. Sending Offer...");
+            m_webrtc.callMethod<void>("createOffer");
+        } else {
+            setMessage("Joined room. Waiting for caller...");
+        }
     } else if (type == "offer" || type == "answer") {
         m_webrtc.callMethod<void>("handleRemoteSdp",
                                   "(Ljava/lang/String;Ljava/lang/String;)V",
@@ -289,15 +362,3 @@ void Backend::fetchStartupData() {
 }
 
 bool Backend::serverConnected() const { return m_serverConnected; }
-
-void Backend::onFCMCallReceived(const QString &type, const QString &sdp, const QString &email) {
-    this->setMessage("Incoming " + type + " from " + email);
-
-    // Pass the SDP to your existing Java WebRTCManager
-    if (this->m_webrtc.isValid() && (type == "offer" || type == "answer")) {
-        this->m_webrtc.callMethod<void>("handleRemoteSdp",
-                                        "(Ljava/lang/String;Ljava/lang/String;)V",
-                                        QJniObject::fromString(sdp).object(),
-                                        QJniObject::fromString(type).object());
-    }
-}

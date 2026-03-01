@@ -14,11 +14,11 @@ public:
     void updateTokenOnBackend(const QString &token);
     static FCMManager* instance();
     // Method to be called by the JNI bridge
-    void processIncomingSignal(const QString &type, const QString &sdp, const QString &email);
+    void processIncomingSignal(const QString &type, const QString &roomId, const QString &email);
 
 signals:
     // Signal to notify the Backend or UI of an incoming call
-    void callSignalReceived(const QString &type, const QString &sdp, const QString &email);
+    void callSignalReceived(const QString &type, const QString &roomId, const QString &email);
 
 private:
     static FCMManager* s_instance;

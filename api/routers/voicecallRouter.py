@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from firebase_admin import messaging
 from models.user import User
+import uuid_utils as uuid
 
 
 router = APIRouter(prefix="/voicecall", tags=["Voicecall"])
@@ -32,21 +33,12 @@ async def send_fcm_notification(target_email: str, payload: dict):
 
 
 @router.post("/send")
-async def call_person(email: str, Offer: str):
+async def call_person(email: str):
+  room_id = str(uuid.uuid7())
   payload = {
-    "type": "offer",
-    "sdp": Offer,
-    "caller_email": "caller@example.com",  # Ideally fetched from the sender's session
+    "type": "incoming_call",
+    "room_id": room_id,
+    "caller_email": "caller@example.com",
   }
   await send_fcm_notification(email, payload)
-  return {"status": "Offer sent successfully"}
-
-
-@router.post("/receive")
-async def receive_call(email: str, Answer: str):
-  payload = {
-    "type": "answer",
-    "sdp": Answer,
-  }
-  await send_fcm_notification(email, payload)
-  return {"status": "Answer sent successfully"}
+  return {"status": "Offer sent successfully", "room_id": room_id}

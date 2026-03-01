@@ -17,15 +17,15 @@ FCMManager* FCMManager::instance() {
     return s_instance;
 }
 
-void FCMManager::processIncomingSignal(const QString &type, const QString &sdp, const QString &email) {
+void FCMManager::processIncomingSignal(const QString &type, const QString &roomId, const QString &email) {
     qDebug() << "FCMManager: Received" << type << "from" << email;
-    emit callSignalReceived(type, sdp, email);
+    emit callSignalReceived(type, roomId, email);
 }
 
 // JNI Bridge: Matches the native method in MyFirebaseMessagingService.java
 extern "C" {
     JNIEXPORT void JNICALL Java_com_github_biltudas1_dialsome_MyFirebaseMessagingService_onFCMMessageReceived(
-        JNIEnv* env, jobject, jstring type, jstring sdp, jstring email) {
+        JNIEnv* env, jobject, jstring type, jstring roomId, jstring email) {
         
         FCMManager* manager = FCMManager::instance();
         if (!manager) {
@@ -34,12 +34,12 @@ extern "C" {
         }
 
         QString typeStr = QJniObject(type).toString();
-        QString sdpStr = QJniObject(sdp).toString();
+        QString roomStr = QJniObject(roomId).toString();
         QString emailStr = QJniObject(email).toString();
 
         // Invoke on the main thread to safely emit signals and update UI
         QMetaObject::invokeMethod(manager, [=]() {
-            manager->processIncomingSignal(typeStr, sdpStr, emailStr);
+            manager->processIncomingSignal(typeStr, roomStr, emailStr);
         }, Qt::QueuedConnection);
     }
 }
