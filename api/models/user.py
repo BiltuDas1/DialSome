@@ -13,7 +13,7 @@ class User(Model):
   password = fields.CharField(max_length=60)
   created_at = fields.DatetimeField(auto_now_add=True, null=False)
   is_active = fields.BooleanField(default=False, null=False)
-  fcm_token = fields.CharField(max_length=255, null=True)
+  fcm_token = fields.TextField(null=True)
 
   @classmethod
   async def create(cls, **kwargs):

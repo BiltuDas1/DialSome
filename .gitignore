@@ -89,3 +89,6 @@ CMakeLists.txt.user*
 
 # Firebase Service Account
 firebase.json
+
+# Adb Test folders
+adb/

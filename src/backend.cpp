@@ -14,7 +14,6 @@ Backend::Backend(QObject *parent) : QObject(parent) {
     s_instance = this;
     this->m_storage = new SecureStorage(parent);
     this->m_google = new Google(this, this->m_storage);
-    this->m_fcm = new FCMManager(this->m_storage, "http://" + this->m_settings->value("Server/host").toString(), this);
 
     connect(this, &Backend::settingsLoaded, this, [this]() {
         QString hostUrl = "http://" + this->m_settings->value("Server/host").toString();
@@ -133,12 +132,10 @@ Backend::Backend(QObject *parent) : QObject(parent) {
     connect(this, &Backend::loginFinished, this, [this](const QString &email, const QString &displayName, const QString &userID, const QString &refresh_token) {
         this->m_storage->saveRefreshToken(refresh_token);
         this->m_storage->save("id", userID); 
-    });
 
-    connect(this->m_fcm, &FCMManager::callSignalReceived, this, [this](const QString &type, const QString &roomId, const QString &email) {
-        if (type == "incoming_call") {
-            this->setMessage("Incoming call from " + email);
-            this->joinCall(roomId); 
+        QString cachedToken = this->m_storage->get("fcm_token");
+        if (!cachedToken.isEmpty()) {
+            this->m_fcm->updateTokenOnBackend(cachedToken);
         }
     });
 
@@ -345,6 +342,16 @@ void Backend::fetchStartupData() {
                     qDebug() << "File saved successfully at:" << filePath;
 
                     this->m_settings.reset(new QSettings(filePath, QSettings::IniFormat));
+                    this->m_fcm = new FCMManager(this->m_storage, "http://" + this->m_settings->value("Server/host").toString(), this);
+
+                    connect(this->m_fcm, &FCMManager::callSignalReceived, this, [this](const QString &type, const QString &roomId, const QString &email) {
+                        qDebug() << "Received the response";
+                        if (type == "incoming_call") {
+                            qDebug() << "Starting the call";
+                            this->setMessage("Incoming call from " + email);
+                            this->joinCall(roomId); 
+                        }
+                    });
                     emit this->settingsLoaded();
                 } else {
                     qDebug() << "Unable to save file: " << filePath;
@@ -357,6 +364,16 @@ void Backend::fetchStartupData() {
     } else {
         qDebug() << "Loading existing settings from:" << filePath;
         this->m_settings.reset(new QSettings(filePath, QSettings::IniFormat));
+        this->m_fcm = new FCMManager(this->m_storage, "http://" + this->m_settings->value("Server/host").toString(), this);
+
+        connect(this->m_fcm, &FCMManager::callSignalReceived, this, [this](const QString &type, const QString &roomId, const QString &email) {
+            qDebug() << "Received the response";
+            if (type == "incoming_call") {
+                qDebug() << "Starting the call";
+                this->setMessage("Incoming call from " + email);
+                this->joinCall(roomId); 
+            }
+        });
         emit this->settingsLoaded();
     }
 }

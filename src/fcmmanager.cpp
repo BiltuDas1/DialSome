@@ -56,12 +56,21 @@ extern "C" {
 }
 
 void FCMManager::updateTokenOnBackend(const QString &token) {
+    this->m_storage->save("fcm_token", token);
+    QString userId = this->m_storage->get("id");
+    if (userId.isEmpty()) {
+        qDebug() << "User not logged in yet. FCM token cached locally.";
+        return;
+    }
+
     QUrl url(this->hostUrl + "/users/fcm/update");
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
+    qDebug() << "FCM Token:" << token;
+
     QJsonObject json;
-    json["id"] = this->m_storage->get("id");
+    json["id"] = userId;
     json["fcm_token"] = token;
 
     QNetworkReply *reply = m_networkManager.post(request, QJsonDocument(json).toJson(QJsonDocument::Compact));

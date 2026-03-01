@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from firebase_admin import messaging
 from models.user import User
 import uuid_utils as uuid
+from pydantic import BaseModel
 
 
 router = APIRouter(prefix="/voicecall", tags=["Voicecall"])
@@ -32,13 +33,16 @@ async def send_fcm_notification(target_email: str, payload: dict):
     raise HTTPException(status_code=500, detail=f"FCM Send Error: {str(e)}")
 
 
+class VoiceData(BaseModel):
+  email: str
+
 @router.post("/send")
-async def call_person(email: str):
+async def call_person(data: VoiceData):
   room_id = str(uuid.uuid7())
   payload = {
     "type": "incoming_call",
     "room_id": room_id,
     "caller_email": "caller@example.com",
   }
-  await send_fcm_notification(email, payload)
+  await send_fcm_notification(data.email, payload)
   return {"status": "Offer sent successfully", "room_id": room_id}
