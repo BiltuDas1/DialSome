@@ -2,6 +2,7 @@ package com.github.biltudas1.dialsome;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.Notification;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
@@ -11,6 +12,9 @@ import androidx.core.app.NotificationCompat;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 import java.util.Map;
+import android.media.AudioAttributes;
+import android.media.RingtoneManager;
+import android.net.Uri;
 
 public class MyFirebaseMessagingService extends FirebaseMessagingService {
     private static final String TAG = "DialSomeFCM";
@@ -66,8 +70,19 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         String channelId = "IncomingCalls";
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
+        // Retrieve the default ringtone URI
+        Uri ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(channelId, "Incoming Calls", NotificationManager.IMPORTANCE_HIGH);
+            
+            // Set the sound on the NotificationChannel
+            AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                    .build();
+            channel.setSound(ringtoneUri, audioAttributes);
+            
             notificationManager.createNotificationChannel(channel);
         }
 
@@ -79,8 +94,12 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setCategory(NotificationCompat.CATEGORY_CALL)
                 .setFullScreenIntent(pendingIntent, true) // THIS WAKES UP THE SCREEN
+                .setSound(ringtoneUri) // Set the sound on the Builder for older Android versions
+                .setOngoing(true)
                 .setAutoCancel(true);
 
-        notificationManager.notify(1001, builder.build());
+        Notification notification = builder.build();
+        notification.flags |= Notification.FLAG_INSISTENT;
+        notificationManager.notify(1001, notification);
     }
 }
