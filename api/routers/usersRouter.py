@@ -67,10 +67,20 @@ async def register_user(authorization: Annotated[str | None, Header()] = None):
     result = google_service.verify_google_token(token)
 
     try:
+      first_name = result.get("given_name") or result.get("name", "")
+      last_name = result.get("family_name", "")
+      user_email = result.get("email")
+
+      if not user_email:
+        return JSONResponse(
+          content={"status": False, "message": "Google account must have an email address"},
+          status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
       _, created = await User.get_or_create(
-        firstname=result["given_name"],
-        lastname=result["family_name"],
-        email=result["email"].lower(),
+        firstname=first_name,
+        lastname=last_name,
+        email=user_email,
         google_id=result["sub"],
       )
 
