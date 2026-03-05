@@ -21,3 +21,18 @@ async def login(email: str) -> tuple[User, jwt.JWT] | None:
   )
 
   return user, new_jwt
+
+
+async def register(first_name: str, last_name: str, email: str, google_id: str) -> bool:
+  """
+  Store the user information in the database
+  Returns:
+    - True if the user is created, False if user already exist
+  """
+  _, created = await User.update_or_create(
+    firstname=first_name,
+    lastname=last_name,
+    email=email,
+    google_id=google_id,
+  )
+  return created

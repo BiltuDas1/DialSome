@@ -21,7 +21,7 @@ ApplicationWindow {
         id: myBackend
 
         Component.onCompleted: {
-            myBackend.fetchStartupData();
+            myBackend.Startup();
         }
     }
 

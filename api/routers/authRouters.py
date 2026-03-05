@@ -1,7 +1,7 @@
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
-from utils import jwt
-from models import User
+from utils import jwt, auth_token
+from models import User, token
 from database import AUTH_STORAGE
 from core import settings
 
@@ -10,8 +10,10 @@ router = APIRouter(prefix="/token", tags=["Authentication"])
 
 
 @router.post("/refresh")
-async def refresh(refresh_token: str):
-  refreshToken = jwt.JWT.to_refresh_token(refresh_token)
+async def refresh(payload: token.RefreshTokenPayload):
+  refreshToken: auth_token.refresh_token.AuthRefreshToken | None = (
+    jwt.JWT.to_refresh_token(payload.refresh_token)
+  )
   if refreshToken is None:
     return JSONResponse(
       content={"status": False, "message": "Invalid Refresh Token"},
@@ -32,7 +34,7 @@ async def refresh(refresh_token: str):
       status_code=status.HTTP_404_NOT_FOUND,
     )
 
-  new_jwt = jwt.JWT(user)
+  new_jwt: auth_token.AuthToken = jwt.JWT(user)
 
   success = await AUTH_STORAGE.update_token(
     old_jti=refreshToken.get_jti(),
@@ -52,5 +54,5 @@ async def refresh(refresh_token: str):
       "message": "JWT Renewal successful",
       "data": new_jwt.to_dict(),
     },
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_201_CREATED,
   )

@@ -26,3 +26,15 @@ class AuthToken(ABC):
     :return: If successful returns RefreshToken object, otherwise None
     :rtype: RefreshToken
     """
+
+  @classmethod
+  @abstractmethod
+  def to_access_token(cls, token: str) -> access_token.AuthAccessToken | None:
+    """
+    Get AccessToken from the inputted token
+
+    :param token: The access token string
+    :type token: str
+    :return: If successful returns AccessToken object, otherwise None
+    :rtype: AccessToken
+    """
