@@ -146,6 +146,11 @@ Backend::Backend(QObject *parent) : QObject(parent) {
         this->m_jwtAccessToken = accessToken;
     });
 
+    // Session Expired
+    connect(this->m_api, &APIService::invalidSession, this, [this]() {
+        emit this->invalidSession("Session Expired! Please login again");
+    });
+
     connect(&m_webSocket, &QWebSocket::connected, this, &Backend::onConnected);
     connect(&m_webSocket, &QWebSocket::textMessageReceived, this, &Backend::onTextMessageReceived);
 
@@ -214,55 +219,22 @@ void Backend::startCall(const QString &email) {
         }
 
         this->m_isCaller = true;
-        QString hostUrl = this->m_settings->getHttpProtocol() + "://" + this->m_settings->getHost() + "/voicecall/send";
-        QUrl url(hostUrl);
-        QNetworkRequest request(url);
-        request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
         setMessage("Connecting to the server...");
-        
-        QJsonObject json;
-        json["email"] = email;
+        this->m_api->get_room(email, this->m_jwtAccessToken);
 
-        QNetworkReply *reply = m_networkManager.post(request, QJsonDocument(json).toJson(QJsonDocument::Compact));
-        connect(reply, &QNetworkReply::finished, this, [reply, this]() {
-            if (reply->error() == QNetworkReply::NoError) {
-                QByteArray responseData = reply->readAll();
+        connect(this->m_api, &APIService::roomFetched, this, [this](QString roomId) {
+            this->setMessage("Connecting to the room: " + roomId);
+            QString wsURL = this->m_settings->getWSProtocol() + "://" + this->m_settings->getHost() + "/ws/" + roomId;
+            m_webSocket.open(QUrl(wsURL));
+    
+            QJniObject context = QNativeInterface::QAndroidApplication::context();
+            m_webrtc = QJniObject("com/github/biltudas1/dialsome/WebRTCManager");
 
-                QJsonParseError parseError;
-                QJsonDocument jsonDoc = QJsonDocument::fromJson(responseData, &parseError);
-
-                if (parseError.error == QJsonParseError::NoError && jsonDoc.isObject()) {
-                    QJsonObject jsonObj = jsonDoc.object();
-
-                    if (jsonObj.contains("data")) {
-                        QJsonObject dataJson = jsonObj.value("data").toObject();
-
-                        if (dataJson.contains("room_id")) {
-                            QString roomId = dataJson.value("room_id").toString();
-
-                            this->setMessage("Connecting to the room: " + roomId);
-                            QString wsURL = this->m_settings->getWSProtocol() + "://" + this->m_settings->getHost() + "/ws/" + roomId;
-                            m_webSocket.open(QUrl(wsURL));
-                    
-                            QJniObject context = QNativeInterface::QAndroidApplication::context();
-                            m_webrtc = QJniObject("com/github/biltudas1/dialsome/WebRTCManager");
- 
-                            if (m_webrtc.isValid()) {
-                                m_webrtc.callMethod<void>("init", "(Landroid/content/Context;)V", context.object());
-                                // Pre-initialize PC so tracks are ready
-                                m_webrtc.callMethod<void>("createPeerConnection");
-                            }
-                        }
-                    }
-                } else {
-                    qDebug() << "JSON Parse Error:" << parseError.errorString();
-                    this->setMessage("Failed to connect to the server");
-                }
-            } else {
-                qDebug() << "Failed to retrieve RoomID:" << reply->errorString();
-                this->setMessage("Failed to connect to the server");
+            if (m_webrtc.isValid()) {
+                m_webrtc.callMethod<void>("init", "(Landroid/content/Context;)V", context.object());
+                // Pre-initialize PC so tracks are ready
+                m_webrtc.callMethod<void>("createPeerConnection");
             }
-            reply->deleteLater();
         });
     });
 #endif

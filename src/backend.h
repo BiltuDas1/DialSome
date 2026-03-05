@@ -43,6 +43,7 @@ signals:
     void registerFinished(const QString &idToken);
     void loginFinished(const QString &email, const QString &displayName, const QString &userID, const QString &refresh_token);
     void loginError(const QString &error);
+    void invalidSession(const QString &error);
 
 private slots:
     void onTextMessageReceived(const QString &message);

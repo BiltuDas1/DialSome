@@ -22,11 +22,14 @@ public:
     explicit APIService(QPointer<Settings> settings, QPointer<SecureStorage> storage, QObject *parent = nullptr);
     void update_fcm(QString token, QString accessToken);
     void refreshToken();
+    void get_room(QString email, QString accessToken);
 
 signals:
     void tokenRefreshed(QString accessToken, QString refreshToken);
     void tokenRefreshError(QString error);
     void invalidSession();
+    void roomFetchError(QString error);
+    void roomFetched(QString roomId);
 
 private:
     QPointer<Settings> m_settings;

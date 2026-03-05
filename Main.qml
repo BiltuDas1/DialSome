@@ -54,5 +54,9 @@ ApplicationWindow {
         function onLoginError(error) {
             myUtils.showToast(error)
         }
+        function onInvalidSession(error) {
+            myUtils.showToast(error)
+            mainStack.replace(loginPageComponent)
+        }
     }
 }
