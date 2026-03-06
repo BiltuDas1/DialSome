@@ -1,5 +1,5 @@
 from models import User
-from core import logger, settings
+from core import logger
 from utils import jwt
 from database import AUTH_STORAGE
 
@@ -17,7 +17,7 @@ async def login(email: str) -> tuple[User, jwt.JWT] | None:
   await AUTH_STORAGE.add_token(
     jti=new_jwt.refresh_token.get_jti(),
     user_id=str(user.id),
-    expire_at=settings.REFRESH_TOKEN_EXPIRY,
+    expire_at=new_jwt.refresh_token.expiry_time(),
   )
 
   return user, new_jwt

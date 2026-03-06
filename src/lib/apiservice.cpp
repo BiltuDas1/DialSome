@@ -119,6 +119,7 @@ void APIService::refreshToken() {
     QString host = this->m_settings->getHttpProtocol() + "://" + this->m_settings->getHost() + API::Auth::refresh;
     QUrl hostUrl(host);
     QNetworkRequest request(hostUrl);
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
     QJsonObject json;
     json["refresh_token"] = this->m_storage->getRefreshToken();

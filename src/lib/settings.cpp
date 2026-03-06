@@ -13,17 +13,17 @@ void Settings::loadSettings() {
         dir.mkpath(directory);
     }
 
+    connect(this, &Settings::settingsDownloaded, this, [this, filePath]() {
+        this->m_settings.reset(new QSettings(filePath, QSettings::IniFormat));
+        emit this->settingsReady();
+    });
+    
     if (!QFile::exists(filePath)) {
         this->downloadSettings(filePath);
     } else {
         // Call the download finish signal, cause it's already downloaded
         emit this->settingsDownloaded();
     }
-
-    connect(this, &Settings::settingsDownloaded, this, [this, filePath]() {
-        this->m_settings.reset(new QSettings(filePath, QSettings::IniFormat));
-        emit this->settingsReady();
-    });
 }
 
 void Settings::downloadSettings(QString filePath) {

@@ -141,17 +141,6 @@ Backend::Backend(QObject *parent) : QObject(parent) {
         }
     });
 
-    // Updates the Refresh and Access Token
-    connect(this->m_api, &APIService::tokenRefreshed, this, [this](QString accessToken, QString refreshToken) {
-        this->m_storage->saveRefreshToken(refreshToken);
-        this->m_jwtAccessToken = accessToken;
-    });
-
-    // Session Expired
-    connect(this->m_api, &APIService::invalidSession, this, [this]() {
-        emit this->invalidSession("Session Expired! Please login again");
-    });
-
     connect(&m_webSocket, &QWebSocket::connected, this, &Backend::onConnected);
     connect(&m_webSocket, &QWebSocket::textMessageReceived, this, &Backend::onTextMessageReceived);
 
@@ -221,8 +210,6 @@ void Backend::startCall(const QString &email) {
 
         this->m_isCaller = true;
         setMessage("Connecting to the server...");
-        this->m_api->get_room(email, this->m_jwtAccessToken);
-
         connect(this->m_api, &APIService::roomFetched, this, [this](QString roomId) {
             this->setMessage("Connecting to the room: " + roomId);
             QString wsURL = this->m_settings->getWSProtocol() + "://" + this->m_settings->getHost() + "/ws/" + roomId;
@@ -237,6 +224,8 @@ void Backend::startCall(const QString &email) {
                 m_webrtc.callMethod<void>("createPeerConnection");
             }
         });
+
+        this->m_api->get_room(email, this->m_jwtAccessToken);
     });
 #endif
 }
@@ -323,6 +312,17 @@ void Backend::Startup() {
     connect(this->m_settings, &Settings::settingsReady, this, [this]() {
         this->m_api = new APIService(this->m_settings, this->m_storage, this);
         this->m_fcm = new FCMManager(this->m_storage, this);
+
+        // Updates the Refresh and Access Token
+        connect(this->m_api, &APIService::tokenRefreshed, this, [this](QString accessToken, QString refreshToken) {
+            this->m_storage->saveRefreshToken(refreshToken);
+            this->m_jwtAccessToken = accessToken;
+        });
+
+        // Session Expired
+        connect(this->m_api, &APIService::invalidSession, this, [this]() {
+            emit this->invalidSession("Session Expired! Please login again");
+        });
         
         // Update FCM Token
         connect(this->m_fcm, &FCMManager::fcmTokenReceived, this, [this](const QString &token) {
@@ -339,6 +339,8 @@ void Backend::Startup() {
         });
         emit this->settingsLoaded();
     });
+
+    this->m_settings->loadSettings();
 }
 
 bool Backend::serverConnected() const { return m_serverConnected; }

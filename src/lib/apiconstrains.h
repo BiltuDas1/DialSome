@@ -15,6 +15,6 @@ namespace API {
   }
 
   namespace FCM {
-    const QString updateDevice = "/fcm/update";
+    const QString updateDevice = "/users/fcm/update";
   }
 }

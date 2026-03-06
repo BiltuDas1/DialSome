@@ -6,6 +6,7 @@ import uuid_utils as uuid
 from models import voice
 from middlewares import authenticate
 import asyncio
+from core import logger
 
 
 router = APIRouter(prefix="/voicecall", tags=["Voicecall"])
@@ -22,6 +23,7 @@ async def send_fcm_notification(fcm_token: str, payload: dict):
     response = messaging.send(message)
     return response
   except Exception as e:
+    logger.LOGGER.debug(f"FCM Send Error: {str(e)}")
     raise HTTPException(status_code=500, detail=f"FCM Send Error: {str(e)}")
 
 
@@ -49,7 +51,7 @@ async def call_person(
   payload = {
     "type": "incoming_call",
     "room_id": room_id,
-    "caller_email": target_user.email,
+    "caller_email": current_user.email,
   }
   await send_fcm_notification(target_user.fcm_token, payload)
   return JSONResponse(

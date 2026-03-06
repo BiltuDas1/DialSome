@@ -4,7 +4,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from fastapi import status
 from core import lifespan
-from routers import voicecallRouter, usersRouter
+from routers import voicecallRouter, usersRouter, authRouters
 from core import settings
 import database
 
@@ -23,6 +23,7 @@ firebase_admin.initialize_app(
 
 app.include_router(voicecallRouter.router)
 app.include_router(usersRouter.router)
+app.include_router(authRouters.router)
 
 # Initialize Database ORM
 database.InitializeORM(app, settings.POSTGREDSQL_URI)

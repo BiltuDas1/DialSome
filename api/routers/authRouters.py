@@ -3,7 +3,6 @@ from fastapi.responses import JSONResponse
 from utils import jwt, auth_token
 from models import User, token
 from database import AUTH_STORAGE
-from core import settings
 
 
 router = APIRouter(prefix="/token", tags=["Authentication"])
@@ -39,7 +38,7 @@ async def refresh(payload: token.RefreshTokenPayload):
   success = await AUTH_STORAGE.update_token(
     old_jti=refreshToken.get_jti(),
     new_jti=new_jwt.refresh_token.get_jti(),
-    new_expiry_at=settings.REFRESH_TOKEN_EXPIRY,
+    new_expiry_at=new_jwt.refresh_token.expiry_time(),
   )
 
   if not success:
