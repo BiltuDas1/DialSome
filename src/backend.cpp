@@ -3,7 +3,7 @@
 #include <QJsonObject>
 #include <QCoreApplication>
 #include <QDebug>
-#include <QPermission>
+#include <QPermissions>
 #include <QStandardPaths>
 #include <QDir>
 #include <QFile>
@@ -131,6 +131,7 @@ Backend::Backend(QObject *parent) : QObject(parent) {
     });
 
     connect(this, &Backend::loginFinished, this, [this](const QString &email, const QString &displayName, const QString &userID, const QString &refresh_token) {
+        this->requestNotificationPermission();
         this->m_storage->saveRefreshToken(refresh_token);
         this->m_storage->save("id", userID); 
 
@@ -341,3 +342,21 @@ void Backend::Startup() {
 }
 
 bool Backend::serverConnected() const { return m_serverConnected; }
+
+void Backend::requestNotificationPermission() {
+    QJniObject activity = QNativeInterface::QAndroidApplication::context();
+    
+    if (activity.isValid()) {
+        QJniEnvironment env;
+        
+        jstring permString = env->NewStringUTF("android.permission.POST_NOTIFICATIONS");
+        jclass stringClass = env->FindClass("java/lang/String");
+        jobjectArray permArray = env->NewObjectArray(1, stringClass, permString);
+
+        activity.callMethod<void>("requestPermissions", "([Ljava/lang/String;I)V", permArray, 123);
+        
+        // Clean up local refs
+        env->DeleteLocalRef(permArray);
+        env->DeleteLocalRef(permString);
+    }
+}
