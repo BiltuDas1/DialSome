@@ -35,6 +35,7 @@ public:
     Q_INVOKABLE void Startup();
     bool serverConnected() const;
     Google* google() const { return m_google; }
+    void requestNotificationPermission();
 
 signals:
     void messageChanged();
