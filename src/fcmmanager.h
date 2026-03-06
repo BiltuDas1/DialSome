@@ -6,11 +6,12 @@
 #include <QNetworkAccessManager>
 #include <QPointer>
 #include "lib/securestorage.h"
+#include "lib/apiservice.h"
 
 class FCMManager : public QObject {
     Q_OBJECT
 public:
-    explicit FCMManager(SecureStorage *storage, QString hostUrl, QObject *parent = nullptr);
+    explicit FCMManager(SecureStorage *storage, QObject *parent = nullptr);
     void updateTokenOnBackend(const QString &token);
     static FCMManager* instance();
     // Method to be called by the JNI bridge
@@ -19,12 +20,12 @@ public:
 signals:
     // Signal to notify the Backend or UI of an incoming call
     void callSignalReceived(const QString &type, const QString &roomId, const QString &email);
+    void fcmTokenReceived(const QString &token);
 
 private:
     static FCMManager* s_instance;
-    QNetworkAccessManager m_networkManager;
     QPointer<SecureStorage> m_storage;
-    QString hostUrl;
+    QPointer<APIService> m_api;
 };
 
 #endif // FCMMANAGER_H

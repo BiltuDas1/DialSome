@@ -7,10 +7,9 @@
 
 FCMManager* FCMManager::s_instance = nullptr;
 
-FCMManager::FCMManager(SecureStorage *storage, QString hostUrl, QObject *parent) : QObject(parent) {
+FCMManager::FCMManager(SecureStorage *storage, QObject *parent) : QObject(parent) {
     s_instance = this;
     this->m_storage = storage;
-    this->hostUrl = hostUrl;
 }
 
 FCMManager* FCMManager::instance() {
@@ -63,23 +62,6 @@ void FCMManager::updateTokenOnBackend(const QString &token) {
         return;
     }
 
-    QUrl url(this->hostUrl + "/users/fcm/update");
-    QNetworkRequest request(url);
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-
     qDebug() << "FCM Token:" << token;
-
-    QJsonObject json;
-    json["id"] = userId;
-    json["fcm_token"] = token;
-
-    QNetworkReply *reply = m_networkManager.post(request, QJsonDocument(json).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [reply]() {
-        if (reply->error() == QNetworkReply::NoError) {
-            qDebug() << "FCM Token updated successfully";
-        } else {
-            qDebug() << "FCM Update Failed:" << reply->errorString();
-        }
-        reply->deleteLater();
-    });
+    this->fcmTokenReceived(token);
 }

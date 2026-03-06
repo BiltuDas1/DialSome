@@ -1,134 +1,141 @@
-from fastapi import APIRouter, Header, HTTPException, status
+from fastapi import APIRouter, status, Depends
 from fastapi.responses import JSONResponse
-from typing import Annotated
-from utils import google_service
-from models import User
+from models import User, fcm
 from core import logger
 from services import users
-from pydantic import BaseModel
+from typing import Mapping, Any
+from middlewares import authenticate, google
 
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
 @router.post("/login")
-async def login_user(authorization: Annotated[str | None, Header()] = None):
-  if authorization is None:
-    print("No Google Authorization header provided", flush=True)
+async def login_user(
+  payload: Mapping[str, Any] = Depends(google.get_current_user_email),
+):
+  if "email" not in payload:
+    logger.LOGGER.error("Login Payload doesn't contains any Email ID")
     return JSONResponse(
-      content={"status": False, "message": "No Authorization header provided"},
-      status_code=status.HTTP_406_NOT_ACCEPTABLE,
-    )
-
-  token = authorization.split(" ")[1]
-  try:
-    result = google_service.verify_google_token(token)
-    result = await users.login(result["email"].lower())
-    if result is None:
-      return JSONResponse(
-        content={"status": False, "message": "User doesn't exist"},
-        status_code=status.HTTP_404_NOT_FOUND,
-      )
-
-    logger.LOGGER.debug("Login Successful")
-    return JSONResponse(
-      content={
-        "status": True,
-        "message": "Login Successful",
-        "data": {
-          "id": str(result[0].id),
-          "email": result[0].email,
-          "firstname": result[0].firstname,
-          "lastname": result[0].lastname,
-          "jwt": result[1].to_dict(),
-        },
-      },
-      status_code=status.HTTP_200_OK,
-    )
-  except HTTPException:
-    logger.LOGGER.debug("Invalid JWT")
-    return JSONResponse(
-      content={"status": False, "message": "Invalid JWT"},
+      content={"status": False, "message": "The Payload doesn't contains any email ID"},
       status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
     )
+
+  result = await users.login(payload["email"].lower())
+
+  if result is None:
+    return JSONResponse(
+      content={"status": False, "message": "User doesn't exist"},
+      status_code=status.HTTP_404_NOT_FOUND,
+    )
+
+  user_data, jwt_data = result[0], result[1]
+
+  logger.LOGGER.debug(f"Login Successful: {user_data.email}")
+  return JSONResponse(
+    content={
+      "status": True,
+      "message": "Login Successful",
+      "data": {
+        "id": str(user_data.id),
+        "email": user_data.email,
+        "firstname": user_data.firstname,
+        "lastname": user_data.lastname,
+        "jwt": jwt_data.to_dict(),
+      },
+    },
+    status_code=status.HTTP_200_OK,
+  )
 
 
 @router.post("/register")
-async def register_user(authorization: Annotated[str | None, Header()] = None):
-  if authorization is None:
-    print("No Google Authorization header provided", flush=True)
+async def register_user(
+  payload: Mapping[str, Any] = Depends(google.get_current_user_email),
+):
+  if "email" not in payload:
+    logger.LOGGER.error("Register Payload doesn't contains any 'email' field")
     return JSONResponse(
-      content={"status": False, "message": "No Authorization header provided"},
-      status_code=status.HTTP_406_NOT_ACCEPTABLE,
+      content={
+        "status": False,
+        "message": "The Payload doesn't contains any 'email' field",
+      },
+      status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
     )
 
-  token = authorization.split(" ")[1]
-  try:
-    result = google_service.verify_google_token(token)
-
-    try:
-      first_name = result.get("given_name") or result.get("name", "")
-      last_name = result.get("family_name", "")
-      user_email = result.get("email")
-
-      if not user_email:
-        return JSONResponse(
-          content={"status": False, "message": "Google account must have an email address"},
-          status_code=status.HTTP_400_BAD_REQUEST,
-        )
-
-      _, created = await User.get_or_create(
-        firstname=first_name,
-        lastname=last_name,
-        email=user_email,
-        google_id=result["sub"],
-      )
-
-      if created:
-        logger.LOGGER.debug("Registration Successful")
-        return JSONResponse(
-          content={"status": True, "message": "Registration Successful"},
-          status_code=status.HTTP_201_CREATED,
-        )
-      else:
-        logger.LOGGER.debug("Email already exist")
-        return JSONResponse(
-          content={"status": False, "message": "Email already exist"},
-          status_code=status.HTTP_409_CONFLICT,
-        )
-    except Exception as e:
-      logger.LOGGER.error(f"Error: {e}")
-      return JSONResponse(
-        content={"status": False, "message": "Internal server error"},
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-      )
-  except HTTPException:
-    logger.LOGGER.debug("Invalid JWT")
+  if ("given_name" not in payload) or ("name" not in payload):
+    logger.LOGGER.error(
+      "Register Payload doesn't contains any 'given_name' or 'name' field"
+    )
     return JSONResponse(
-      content={"status": False, "message": "Invalid JWT"},
+      content={
+        "status": False,
+        "message": "The Payload doesn't contains any 'given_name' or 'name' field",
+      },
       status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+    )
+
+  if "sub" not in payload:
+    logger.LOGGER.error("Register Payload doesn't contains any 'sub' field")
+    return JSONResponse(
+      content={
+        "status": False,
+        "message": "The Payload doesn't contains any 'sub' field",
+      },
+      status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+    )
+
+  first_name = str(payload.get("given_name") or payload.get("name"))
+  last_name = str(payload.get("family_name", ""))
+  user_email = str(payload.get("email"))
+  google_id = str(payload.get("sub"))
+
+  created = await users.register(
+    first_name=first_name, last_name=last_name, email=user_email, google_id=google_id
+  )
+
+  if created:
+    logger.LOGGER.debug("Registration Successful")
+    return JSONResponse(
+      content={"status": True, "message": "Registration Successful"},
+      status_code=status.HTTP_201_CREATED,
+    )
+  else:
+    logger.LOGGER.debug("Email already exist")
+    return JSONResponse(
+      content={"status": False, "message": "Email already exist"},
+      status_code=status.HTTP_409_CONFLICT,
     )
 
 
 @router.post("/ban")
-async def ban_user():
+async def ban_user(user_id: str = Depends(authenticate.verify_jwt)):
   pass
 
 
-class FCMUpdate(BaseModel):
-  id: str
-  fcm_token: str
+fcmRouter = APIRouter(prefix="/fcm", tags=["FCM"])
 
 
-@router.post("/fcm/update")
-async def update_fcm_token(data: FCMUpdate):
-  user = await User.get_or_none(id=data.id)
+@fcmRouter.post("/update")
+async def update_fcm_token(
+  data: fcm.FCMUpdate, user_id: str = Depends(authenticate.verify_jwt)
+):
+  user = await User.get_or_none(id=user_id)
 
   if not user:
-    raise HTTPException(status_code=404, detail="User not found")
+    logger.LOGGER.debug("User not found")
+    return JSONResponse(
+      content={"status": False, "message": "User not found"},
+      status_code=status.HTTP_404_NOT_FOUND,
+    )
 
   # Update the token field
   user.fcm_token = data.fcm_token
   await user.save()
 
-  return {"status": "success", "message": "FCM token updated"}
+  return JSONResponse(
+    content={"status": "success", "message": "FCM token updated"},
+    status_code=status.HTTP_200_OK,
+  )
+
+
+router.include_router(fcmRouter)

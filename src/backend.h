@@ -13,6 +13,8 @@
 #include <QSettings>
 #include <QScopedPointer>
 #include "lib/google.h"
+#include "lib/settings.h"
+#include "lib/apiservice.h"
 #include "fcmmanager.h"
 
 class Backend : public QObject {
@@ -30,7 +32,7 @@ public:
     Q_INVOKABLE void joinCall(const QString &roomId);
     void handleLocalIce(const QJsonObject &json);
     void handleLocalSdp(const QJsonObject &json);
-    Q_INVOKABLE void fetchStartupData();
+    Q_INVOKABLE void Startup();
     bool serverConnected() const;
     Google* google() const { return m_google; }
 
@@ -41,6 +43,7 @@ signals:
     void registerFinished(const QString &idToken);
     void loginFinished(const QString &email, const QString &displayName, const QString &userID, const QString &refresh_token);
     void loginError(const QString &error);
+    void invalidSession(const QString &error);
 
 private slots:
     void onTextMessageReceived(const QString &message);
@@ -51,12 +54,13 @@ private:
     QNetworkAccessManager m_networkManager;
     QWebSocket m_webSocket;
     QJniObject m_webrtc;
-    QScopedPointer<QSettings> m_settings;
     bool m_serverConnected = false;
     QString m_jwtAccessToken = "";
     QPointer<Google> m_google;
     QPointer<SecureStorage> m_storage;
     QPointer<FCMManager> m_fcm;
+    QPointer<Settings> m_settings;
+    QPointer<APIService> m_api;
     bool m_isCaller = false;
 };
 

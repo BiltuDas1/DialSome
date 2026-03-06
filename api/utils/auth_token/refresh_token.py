@@ -19,6 +19,12 @@ class AuthRefreshToken(ABC):
     """
 
   @abstractmethod
+  def get_sub(self) -> str:
+    """
+    Returns the subject of the Token
+    """
+
+  @abstractmethod
   def creation_time(self) -> int:
     """
     Returns the creation time of the Token
