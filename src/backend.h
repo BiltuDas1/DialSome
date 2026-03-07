@@ -36,6 +36,7 @@ public:
     bool serverConnected() const;
     Google* google() const { return m_google; }
     void requestNotificationPermission();
+    Q_INVOKABLE void endCall();
 
 signals:
     void messageChanged();
@@ -45,6 +46,8 @@ signals:
     void loginFinished(const QString &email, const QString &displayName, const QString &userID, const QString &refresh_token);
     void loginError(const QString &error);
     void invalidSession(const QString &error);
+    void startingCall();
+    void callEnded();
 
 private slots:
     void onTextMessageReceived(const QString &message);

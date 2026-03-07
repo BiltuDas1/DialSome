@@ -214,6 +214,8 @@ void Backend::startCall(const QString &email) {
             this->setMessage("Connecting to the room: " + roomId);
             QString wsURL = this->m_settings->getWSProtocol() + "://" + this->m_settings->getHost() + "/ws/" + roomId;
             m_webSocket.open(QUrl(wsURL));
+
+            emit this->startingCall();
     
             QJniObject context = QNativeInterface::QAndroidApplication::context();
             m_webrtc = QJniObject("com/github/biltudas1/dialsome/WebRTCManager");
@@ -361,4 +363,8 @@ void Backend::requestNotificationPermission() {
         env->DeleteLocalRef(permArray);
         env->DeleteLocalRef(permString);
     }
+}
+
+void Backend::endCall() {
+    emit this->callEnded();
 }

@@ -4,7 +4,6 @@ project(DialSome VERSION 0.1 LANGUAGES CXX)
 # Extra Metadatas
 add_definitions(-DGITHUB_REPO="https://github.com/BiltuDas1/DialSome")
 add_definitions(-DGITHUB_CONFIGURATIONS="https://raw.githubusercontent.com/BiltuDas1/DialSome/refs/heads/main/settings.ini")
-add_definitions(-DHTTP_PROTOCOL="https")
 
 find_package(Qt6 REQUIRED COMPONENTS
     Quick
@@ -37,6 +36,7 @@ qt_add_qml_module(DialSome
         Main.qml
         ui/LoginPage.qml
         ui/MainPage.qml
+        ui/CallingPage.qml
     SOURCES
         src/lib/securestorage.h src/lib/securestorage.cpp
         src/lib/google.h src/lib/google.cpp
@@ -51,6 +51,10 @@ qt_add_qml_module(DialSome
 qt_add_resources(DialSome "configs"
     PREFIX "/"
     FILES qtquickcontrols2.conf
+)
+
+qt_add_resources(DialSome "resources"
+    FILES resources.qrc
 )
 
 target_link_libraries(DialSome PRIVATE
@@ -75,6 +79,6 @@ if(ANDROID AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-    add_definitions(-DQT_NO_DEBUG_OUTPUT)
+    # add_definitions(-DQT_NO_DEBUG_OUTPUT)
     set(QT_QML_DEBUG OFF)
 endif()
