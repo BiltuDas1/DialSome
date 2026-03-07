@@ -46,15 +46,14 @@ qt_add_qml_module(DialSome
         src/utils.h src/utils.cpp
         src/fcmmanager.h src/fcmmanager.cpp
         src/backend.h src/backend.cpp
+    RESOURCES
+        icons/dial.png
+        icons/user.png
 )
 
 qt_add_resources(DialSome "configs"
     PREFIX "/"
     FILES qtquickcontrols2.conf
-)
-
-qt_add_resources(DialSome "resources"
-    FILES resources.qrc
 )
 
 target_link_libraries(DialSome PRIVATE

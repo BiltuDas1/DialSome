@@ -9,7 +9,7 @@ ColumnLayout {
     Rectangle {
         id: titleSection
         Layout.fillWidth: true
-        Layout.preferredHeight: 60
+        Layout.preferredHeight: 80
         Layout.topMargin: 50
 
         color: "transparent"
@@ -19,7 +19,7 @@ ColumnLayout {
             anchors.fill: parent
 
             Image {
-                source: "qrc:/icons/user.png"
+                source: "../icons/user.png"
                 sourceSize.width: 80
                 sourceSize.height: 80
                 Layout.alignment: Qt.AlignHCenter
@@ -62,7 +62,7 @@ ColumnLayout {
         Layout.alignment: Qt.AlignHCenter
 
         Image {
-            source: "qrc:/icons/dial.png"
+            source: "../icons/dial.png"
             sourceSize.width: 35
             sourceSize.height: 35
             anchors.centerIn: parent
@@ -74,6 +74,7 @@ ColumnLayout {
         }
 
         MouseArea {
+            anchors.fill: parent
             onClicked: {
                 myBackend.endCall();
             }
